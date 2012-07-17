@@ -1,0 +1,234 @@
+Functions in the Screen Lib:
+- screen.getSize()
+	* gets the size of the output buffer
+	* return values:
+		- the horizontal size of the output buffer (number)
+		- the vertical size of the output buffer (number)
+- screen.getWidth()
+	* gets the width of the output buffer
+	* return values:
+		- the width of the output buffer (number)
+- screen.getHeight()
+	* gets the height of the output buffer
+	* return values:
+		- the height of the output buffer (number)
+- screen.clear()
+	* clears the output buffer
+- screen.clearLine(line)
+	* clears a line of the output buffer
+	* parameters:
+		- line: the number of line to clear (number) [optional]
+- screen.getCursorPos()
+	* gets the cursor position
+	* return values:
+		- the horizontal position of the cursor (number)
+		- the vertical position of the cursor (number)
+- screen.setCursorPos(x, y)
+	* moves the cursor to the specified position
+	* parameters:
+		- x: the horizontal position of the cursor (number)
+		- y: the vertical position of the cursor (number)
+- screen.setCursorBlink(b)
+	* sets the cursor blinking mode
+	* parameters:
+		- b: true to make the cursor blink, false to make it stop (boolean)
+- screen.scroll(n)
+	* scrolls the screen vertically, moving the text up
+	* parameters:
+		- n: the number of lines to scroll (number)
+- screen.setChar(x, y, char)
+	* sets the character at the specified position
+	* parameters:
+		- x: the horizontal position (number)
+		- y: the vertical position (number)
+		- char: the character to set (string)
+- screen.getChar(x, y)
+	* gets the character at the specified position
+	* return values:
+		- the character, nil if out of the screen (string, nil)
+	* parameters:
+		- x: the horizontal position (number)
+		- y: the vertical position (number)
+- screen.write(text, x, y)
+	* writes text to the output buffer
+	* parameters:
+		- text: the text to write (any type)
+		- x: the horizontal position (number) [optional]
+		- y: the vertical position (number) [optional]
+- screen.read(x, y, len)
+	* reads text from the output buffer
+	* return values:
+		- the text read (string)
+	* parameters:
+		- x: the horizontal position (number)
+		- y: the vertical position (number)
+		- len: the lenght of the string to read (number)
+- screen.redraw()
+	* draws the contents of the buffer to the screen
+- screen.setOutputMode(mode)
+	* sets the output mode to use
+	* parameters:
+		- mode: one of the defined output modes (number)
+- screen.getOutputMode()
+	* gets the current output mode
+	* return values:
+		- the current output mode (number)
+- screen.addMonitor(side)
+	* adds a monitor to the output
+	* return values:
+		- boolean indicating if the monitor was added (boolean)
+	* parameters:
+		- side: the side the monitor is in (string)
+- screen.removeMonitor(side)
+	* removes a monitor from the output
+	* parameters:
+		- side: the side of the monitor to remove (string)
+- screen.getMonitors()
+	* gets a list of the monitors in use
+	* return values:
+		- a list with the monitor sides (table)
+
+Output modes available:
+- outputComputerOnly
+	* show output on the computer screen only
+- outputMonitorOnly
+	* show output on the attached monitors only
+- outputDuplicate
+	* show output on the computer screen and the monitors
+
+function setChar(x, y, c)
+	if x > 0 and x <= nWidth and y > 0 and y <= nHeight then
+		c = string.sub(tostring(c), 1, 1)
+		tBuffer[y] = string.sub(tBuffer[y], 1, x - 1)..c..string.sub(tBuffer[y], x + 1)
+	end
+end
+
+function write(s, x, y)
+	x = x or nCursorX
+	y = y or nCursorY
+	if x <= nWidth and y > 0 and y <= nHeight then
+		s = tostring(s)
+		if x <= 0 then
+			s = string.sub(s, (1 - x) + 1)
+			x = 1
+		end
+		local len = #s
+		if x + len > nWidth then
+			s = string.sub(s, 1, nWidth - x)
+			len = #s
+			nCursorX = x + len + 1
+		else
+			nCursorX = x + len
+		end
+		nCursorY = y
+		tBuffer[y] = string.sub(tBuffer[y], 1, x - 1)..s..string.sub(tBuffer[y], x + len)
+	end
+end
+
+function redraw()
+	local bTerm = bit32.btest(nOutMode, outputComputerOnly)
+	local bMon = bit32.btest(nOutMode, outputMonitorOnly)
+	if bTerm then
+		ccterm.clear()
+	end
+	if bMon then
+		for _,mon in pairs(tMonitors) do
+			mon.clear()
+		end
+	end
+	for y, s in ipairs(tBuffer) do
+		if bTerm then
+			ccterm.setCursorPos(1, y)
+			ccterm.write(s)
+		end
+		if bMon then
+			for _,mon in pairs(tMonitors) do
+				mon.setCursorPos(1, y)
+				mon.write(s)
+			end
+		end
+	end
+	if bTerm then
+		ccterm.setCursorPos(nCursorX, nCursorY)
+		ccterm.setCursorBlink(bBlink)
+	end
+	if bMon then
+		for _,mon in pairs(tMonitors) do
+			mon.setCursorPos(nCursorX, nCursorY)
+			mon.setCursorBlink(bBlink)
+		end
+	end
+end
+
+function getSize()
+	return nWidth, nHeight
+end
+
+function getCursorPos()
+	return nCursorX, nCursorY
+end
+
+function setCursorPos(x, y)
+	CheckVarsType("number", x, y)
+	nCursorX, nCursorY = x, y
+end
+
+function setCursorBlink(b)
+	CheckVarType(b, "boolean")
+	bBlink = b
+end
+
+function scroll(n)
+	if n >= nHeight then
+		clearBuffer()
+	else
+		for y = 1, nHeight - n do
+			tBuffer[y] = tBuffer[y + n]
+		end
+		for y = (nHeight - n) + 1, nHeight do
+			tBuffer[y] = sEmptyLine
+		end
+	end
+end
+
+function setOutputMode(nMode)
+	CheckVarType(nMode, "number")
+	nOutMode = nMode
+end
+
+function getOutputMode()
+	return nOutMode
+end
+
+function addMonitor(sSide)
+	if peripheral.isA(sSide, "monitor") then
+		tMonitors[sSide] = peripheral.wrap(sSide)
+		resize()
+		return true
+	end
+	return false
+end
+
+function removeMonitor(sSide)
+	CheckVarType(sSide, "string")
+	if tMonitors[sSide] then
+		tMonitors[sSide] = nil
+		resize()
+	end
+end
+
+function getMonitors()
+	return table.keys(tMonitors)
+end
+
+init()
+
+local timer = os.startTimer(nDelay)
+sys.addEventHandler("timer", function(t)
+	if t == timer then
+		redraw()
+		timer = os.startTimer(nDelay)
+		return true
+	end
+	return false
+end)

@@ -1,0 +1,16 @@
+Functions in the Config Lib:
+- config.load(fileName)
+	* loads the configuration from a file
+	* return values:
+		- table containing the configurations, nil on error (table, nil)
+		- string containing the error, if any (string, nil)
+	* parameters:
+		- fileName: path to the configuration file (string)
+- consif.save(fileName, config)
+	* saves the configuration to a file
+	* return values:
+		- boolean indicating if the operation was succesfull (boolean)
+		- string containing the error, if any (string, nil)
+	* parameters:
+		- fileName: path to the configuration file (string)
+		- config: cunfiguration table (table)

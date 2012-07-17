@@ -1,0 +1,5 @@
+cp copies a file or directory from one location to another.
+
+ex:
+"cp os myos" copies "os" to "myos".
+"cp bin mystuff/bin" copies "bin" to "mystuff/bin".

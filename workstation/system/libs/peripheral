@@ -1,0 +1,148 @@
+-- Peripherals Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+local tPeripherals = {}
+local tSides = ccrs.getSides()
+
+local function CheckValidSide(sSide)
+	CheckVarType(sSide, "string")
+	if not table.contains(tSides, sSide) then
+		error("Invalid side")
+	end
+end
+
+-- API functions
+
+function isPresent(sSide)
+	CheckValidSide(sSide)
+	return tPeripherals[sSide] ~= nil
+end
+
+function getType(sSide)
+	CheckValidSide(sSide)
+	if not tPeripherals[sSide] then
+		return ""
+	end
+	return tPeripherals[sSide].type
+end
+
+function getMethods(sSide)
+	CheckValidSide(sSide)
+	return ccperiph.getMethods(sSide)
+end
+
+function call(sSide, sMethod, ...)
+	CheckValidSide(sSide)
+	CheckVarType(sMethod, "string")
+	return tPeripherals[sSide].methods[sMethod](...)
+end
+
+function wrap(sSide)
+	CheckValidSide(sSide)
+	if tPeripherals[sSide] ~= nil then
+		return table.copy(tPeripherals[sSide].methods)
+	end
+	return nil
+end
+
+function sideOf(sType)
+	CheckVarType(sType, "string")
+	for _,s in ipairs(tSides) do
+		if tPeripherals[s] ~= nil and tPeripherals[s].type == sType then
+			return s
+		end
+	end
+	return nil
+end
+
+function isA(sSide, sType)
+	CheckValidSide(sSide)
+	return tPeripherals[sSide] ~= nil and tPeripherals[sSide].type == sType
+end
+
+function left()
+	return wrap("left")
+end
+
+function right()
+	return wrap("right")
+end
+
+function top()
+	return wrap("top")
+end
+
+function bottom()
+	return wrap("bottom")
+end
+
+function front()
+	return wrap("front")
+end
+
+function back()
+	return wrap("back")
+end
+
+function all()
+	local t = {}
+	for _,side in ipairs(tSides) do
+		t[side] = wrap(side)
+	end
+	return t
+end
+
+-- System functions
+
+local function AddPeripheral(sSide)
+	local t = {}
+	t.type = ccperiph.getType(sSide)
+	t.methods = {}
+	for _,m in ipairs(ccperiph.getMethods(sSide)) do
+		t.methods[m] = function(...)
+			return ccperiph.call(sSide, m, ...)
+		end
+	end
+	tPeripherals[sSide] = t
+	os.queueEvent("Peripheral", "attach", sSide, t.type)
+end
+
+local function RemovePeripheral(sSide)
+	tPeripherals[sSide] = nil
+	os.queueEvent("Peripheral", "detach", sSide, t.type)
+end
+
+-- Set Event Handlers
+
+sys.addEventHandler("peripheral", function(side)
+	AddPeripheral(side)
+	return true
+end)
+
+sys.addEventHandler("peripheral_detach", function(side)
+	RemovePeripheral(side)
+	return true
+end)
+
+for _,s in ipairs(tSides) do
+	if ccperiph.isPresent(s) then
+		AddPeripheral(s)
+	end
+end

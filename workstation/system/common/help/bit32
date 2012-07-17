@@ -1,0 +1,76 @@
+Functions in the Bit32 Lib:
+- bit32.bnot(n)
+	* bitwise not (~n)
+	* return values:
+		- the bitwise not of the given number (number)
+	* parameters:
+		- n: number to aply bitwise not (number)
+- bit32.band(...)
+	* bitwise and (m & n)
+	* return values:
+		- the bitwise and of the given values (number)
+	* parameters:
+		- ...: the values (number)
+- bit32.bor(...)
+	* bitwise or (m | n)
+	* return values:
+		- the bitwise or of the given values (number)
+	* parameters:
+		- ...: the values (number)
+- bit32.bxor(...)
+	* bitwise xor (m ^ n)
+	* return values:
+		- the bitwise xor of the given values (number)
+	* parameters:
+		- ...: the values (number)
+- bit32.rshift(n, bits)
+	* right shift (n >> bits)
+	* return values:
+		- the shifted value (number)
+	* parameters:
+		- n: (number)
+		- bits: number of bits to shift (number)
+- bit32.lshift(n, bits)
+	* left shift (n << bits)
+	* return values:
+		- the shifted value (number)
+	* parameters:
+		- n: (number)
+		- bits: number of bits to shift (number)
+- bit32.lrotate(i, n)
+	* left rotate the number
+	* return values:
+		- the rotated value (number)
+	* parameters:
+		- n: (number)
+		- bits: number of bits to rotate (number)
+- bit32.rrotate(i, n)
+	* right rotate the number
+	* return values:
+		- the rotated value (number)
+	* parameters:
+		- n: (number)
+		- bits: number of bits to rotate (number)
+- bit32.btest(...)
+	* returns a boolean signaling whether the bitwise and of its operands is different from zero
+	* return values:
+		- (boolean)
+	* parameters:
+		- ...: the values to test (number)
+- bit32.testbit(i, n)
+	* test if the bit n of i is on (1)
+	* return values:
+		- boolean indicating if the bit is on (boolean)
+	* parameters:
+		- i: the number to test (number)
+		- n: the bit number to test (number)
+- bit32.setbit(i, n)
+	* sets the bit n of i to 1
+	* parameters:
+		- i: the number to set the bit (number)
+		- n: the bit number to set (number)
+- bit32.clearbit(i, n)
+	* sets the bit n of i to 0
+	* parameters:
+		- i: the number to clear the bit (number)
+		- n: the bit number to clear (number)

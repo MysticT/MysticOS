@@ -1,0 +1,33 @@
+local tArgs = { ... }
+
+local function printUsage()
+	print("Usage: monitor <add/remove> <side/all>")
+end
+
+if #tArgs ~= 2 then
+	printUsage()
+	return
+end
+
+local sAction = string.lower(tArgs[1])
+local sSide = string.lower(tArgs[2])
+
+if sAction == "add" then
+	if sSide == "all" then
+		for _,side in ipairs(rs.getSides()) do
+			screen.addMonitor(side)
+		end
+	else
+		screen.addMonitor(sSide)
+	end
+elseif sAction == "remove" then
+	if sSide == "all" then
+		for _,side in ipairs(rs.getSides()) do
+			screen.removeMonitor(side)
+		end
+	else
+		screen.removeMonitor(sSide)
+	end
+else
+	printUsage()
+end

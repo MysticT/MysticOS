@@ -1,0 +1,5 @@
+move moves a file or directory from one location to another.
+
+ex:
+"move foo bar" renames the file "foo" to "bar".
+"move foo bar/foo" moves the file "foo" to a folder called "bar".

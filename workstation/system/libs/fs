@@ -1,0 +1,888 @@
+-- File System Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+--[[
+- tDisks (table)
+	* contains the mounted disks tables
+--]]
+local tDisks = {}
+
+local function SplitPath(sPath)
+	CheckVarType(sPath, "string")
+	local i = 1
+	local t = {}
+	for path in string.gmatch(sPath, "[^/\\]*[/\\]?") do
+		path = string.gsub(path, "[/\\]", "")
+		if path == ".." then
+			if i > 1 then
+				i = i - 1
+				t[i] = nil
+			else
+				return nil
+			end
+		elseif path ~= "" and path ~= "." then
+			t[i] = path
+			i = i + 1
+		end
+	end
+	return t
+end
+
+--[[
+- resolveUsrPath (function)
+	* resolves the given path to the user directory
+	* return values:
+		- the resolved path (string)
+	* parameters:
+		- sPath: the path to resolve (string)
+--]]
+local function resolveUsrPath(sPath)
+	local t = SplitPath(sPath)
+	if t == nil then
+		return nil
+	end
+	local path = ""
+	local sUsrPath = ccfs.combine(ccfs.combine(sys.osDir(), "users"), user.getUserName())
+	if #t == 0 then
+		return sUsrPath
+	end
+	for _, str in ipairs(t) do
+		if path == "" then
+			path = sUsrPath.."/"..str
+			for _,d in pairs(tDisks) do
+				if str == d.name then
+					path = d.path
+				end
+			end
+		else
+			path = path.."/"..str
+		end
+	end
+	return path
+end
+
+local function IsRoot(sPath)
+	local t = SplitPath(sPath)
+	return t ~= nil and #t == 0
+end
+
+--[[
+- Copy (function)
+	* copies a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories copied, on error the error message (number, string)
+		- number of files copied (number, nil)
+	* parameters:
+		- sSrc: the source path, it must be an absolute/resolved path (string)
+		- sDst: the destination path, it must be an absolute/resolved path (string)
+		- bOverWrite: boolean indicating if existant files should be overwrited (boolean) [optional]
+--]]
+local function Copy(sSrc, sDst, bOverWrite)
+	if not ccfs.exists(sSrc) then
+		return false, "No such file or directory"
+	end
+	if ccfs.isDir(sSrc) then
+		local nDirs, nFiles = 1, 0
+		if ccfs.exists(sDst) then
+			if not ccfs.isDir(sDst) and not bOverWrite then
+				return false, "File already exists"
+			end
+		else
+			local ok, err = ccfs.makeDir(sDst)
+			if not ok then
+				return false, err
+			end
+		end
+		local tList = ccfs.list(sSrc)
+		for _,sFile in ipairs(tList) do
+			local ok, d, f = Copy(ccfs.combine(sSrc, sFile), ccfs.combine(sDst, sFile), bOverWrite)
+			if not ok then
+				return false, d
+			end
+			nDirs = nDirs + d
+			nFiles = nFiles + f
+		end
+		return true, nDirs, nFiles
+	else
+		if ccfs.exists(sDst) then
+			if bOverWrite then
+				ccfs.delete(sDst)
+			else
+				return false, "File already exists"
+			end
+		end
+		local ok, err = pcall(ccfs.copy, sSrc, sDst)
+		if not ok then
+			return false, err
+		end
+		return true, 0, 1
+	end
+end
+
+--[[
+- Move (function)
+	* moves a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories moved, on error the error message (number, string)
+		- number of files moved (number, nil)
+	* parameters:
+		- sSrc: the source path, it must be an absolute/resolved path (string)
+		- sDst: the destination path, it must be an absolute/resolved path (string)
+		- bOverWrite: boolean indicating if existant files should be overwrited (boolean) [optional]
+--]]
+local function Move(sSrc, sDst, bOverWrite)
+	if not ccfs.exists(sSrc) then
+		return false, "No such file or directory"
+	end
+	if ccfs.isDir(sSrc) then
+		local nDirs, nFiles = 1, 0
+		if ccfs.exists(sDst) then
+			if not ccfs.isDir(sDst) and not bOverWrite then
+				return false, "File already exists"
+			end
+		else
+			local ok, err = ccfs.makeDir(sDst)
+			if not ok then
+				return false, err
+			end
+		end
+		local tList = ccfs.list(sSrc)
+		for _,sFile in ipairs(tList) do
+			local ok, d, f = Move(ccfs.combine(sSrc, sFile), ccfs.combine(sDst, sFile), bOverWrite)
+			if not ok then
+				return false, d
+			end
+			nDirs = nDirs + d
+			nFiles = nFiles + f
+		end
+		return true, nDirs, nFiles
+	else
+		if ccfs.exists(sDst) then
+			if bOverWrite then
+				ccfs.delete(sDst)
+			else
+				return false, "File already exists"
+			end
+		end
+		local ok, err = pcall(ccfs.move, sSrc, sDst)
+		if not ok then
+			return false, err
+		end
+		return true, 0, 1
+	end
+end
+
+--[[
+- Delete (function)
+	* deletes a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories deleted, on error the error message (number, string)
+		- number of files deleted (number, nil)
+	* parameters:
+		- sPath: the path to the file/directory to delete, it must be an absolute/resolved path (string)
+--]]
+local function Delete(sPath)
+	if not ccfs.exists(sPath) then
+		return false, "No such file or directory"
+	end
+	if ccfs.isDir(sPath) then
+		local nDirs, nFiles = 1, 0
+		local tList = ccfs.list(sPath)
+		for _,sFile in ipairs(tList) do
+			local ok, d, f = Delete(ccfs.combine(sPath, sFile))
+			if not ok then
+				return false, d
+			end
+			nDirs = nDirs + d
+			nFiles = nFiles + f
+		end
+		local ok, err = pcall(ccfs.delete, sPath)
+		if not ok then
+			return false, err
+		end
+		return true, nDirs, nFiles
+	else
+		local ok, err = pcall(ccfs.delete, sPath)
+		if not ok then
+			return false, err
+		end
+		return true, 0, 1
+	end
+end
+
+-- Lib functions
+
+--[[
+- exists (function)
+	* checks if a file or directory exists
+	* return values:
+		- boolean indicating if the file/directory exists (boolean)
+	* parameters:
+		- sPath: the path to check, it must be an user path (string)
+--]]
+function exists(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	return sUsrPath ~= nil and ccfs.exists(sUsrPath)
+end
+
+--[[
+- isDir (function)
+	* checks if the given path is a directory
+	* return values:
+		- boolean indicating if the path is a directory (boolean)
+	* parameters:
+		- sPath: the path to check, it must be an user path (string)
+--]]
+function isDir(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	return sUsrPath ~= nil and ccfs.isDir(sUsrPath)
+end
+
+--[[
+- isReadOnly (function)
+	* checks if the given path is a read-only file/directory
+	* return values:
+		- boolean indicating if the file/directory is read-only(boolean)
+	* parameters:
+		- sPath: the path to check, it must be an user path (string)
+--]]
+function isReadOnly(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	return sUsrPath == nil or ccfs.isReadOnly(sUsrPath)
+end
+
+--[[
+- getName (function)
+	* gets the name of the given file/directory, without the path
+	* return values:
+		- the file/directory name (string)
+	* parameters:
+		- sPath: the path to the file/directory, it must be an user path (string)
+--]]
+function getName(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	if not sUsrPath then
+		return nil
+	end
+	return ccfs.getName(sUsrPath)
+end
+
+--[[
+- getDrive (function)
+	* gets the drive the given path is in
+	* return values:
+		- the drive name (string)
+	* parameters:
+		- sPath: the path to get it's drive, it must be an user path (string)
+--]]
+function getDrive(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	if sUsrPath == nil then
+		return nil
+	end
+	return ccfs.getDrive(sUsrPath)
+end
+
+--[[
+- getSize (function)
+	* gets the size of a file or directory
+	* return values:
+		- the size of the file/directory (number)
+	* parameters:
+		- sPath: the path to the file/directory, it must be an user path (string)
+--]]
+function getSize(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	if sUsrPath == nil then
+		return nil
+	end
+	return ccfs.getSize(sUsrPath)
+end
+
+--[[
+- makeDir (function)
+	* creates a new directory
+	* return values:
+		- boolean indicating if the path is a directory (boolean)
+		- error message, if any (string, nil)
+	* parameters:
+		- sPath: the path to the new directory, it must be an user path (string)
+--]]
+function makeDir(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	if sUsrPath == nil then
+		return false, "Invalid Path"
+	end
+	return pcall(ccfs.makeDir, sUsrPath)
+end
+
+--[[
+- move (function)
+	* moves a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories moved, on error the error message (number, string)
+		- number of files moved (number, nil)
+	* parameters:
+		- sSrcPath: the source path, it must be an absolute/resolved path (string)
+		- sDstPath: the destination path, it must be an absolute/resolved path (string)
+		- bOverWrite: boolean indicating if existant files should be overwrited (boolean) [optional]
+--]]
+function move(sSrcPath, sDstPath, bOverWrite)
+	CheckVarTypes(bOverWrite, "nil", "boolean")
+	local sSrc = resolveUsrPath(sSrcPath)
+	local sDst = resolveUsrPath(sDstPath)
+	return Move(sSrc, sDst, bOverWrite)
+end
+
+--[[
+- copy (function)
+	* copies a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories copied, on error the error message (number, string)
+		- number of files copied (number, nil)
+	* parameters:
+		- sSrcPath: the source path, it must be an absolute/resolved path (string)
+		- sDstPath: the destination path, it must be an absolute/resolved path (string)
+		- bOverWrite: boolean indicating if existant files should be overwrited (boolean) [optional]
+--]]
+function copy(sSrcPath, sDstPath, bOverWrite)
+	CheckVarTypes(bOverWrite, "nil", "boolean")
+	local sSrc = resolveUsrPath(sSrcPath)
+	local sDst = resolveUsrPath(sDstPath)
+	return Copy(sSrc, sDst, bOverWrite)
+end
+
+--[[
+- delete (function)
+	* deletes a file or directory
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- number of directories deleted, on error the error message (number, string)
+		- number of files deleted (number, nil)
+	* parameters:
+		- sPath: the path of the file/directory to delete, it must be an absolute/resolved path (string)
+--]]
+function delete(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	return Delete(sUsrPath)
+end
+
+--[[
+- combine (function)
+	* combines the given paths
+	* return values:
+		- the combined paths (string)
+	* parameters:
+		- sPath: the path to combine (string)
+		- sLocalPath: the local path to combine (string)
+--]]
+function combine(sPath, sLocalPath)
+	return ccfs.combine(sPath, sLocalPath)
+end
+
+--[[
+- createLink (function)
+	* creates a link file to the given path
+	* return values:
+		- boolean indicating if the file was created (boolean)
+		- error message, if any (string, nil)
+	* parameters:
+		- sLinkPath: the path to the link file to create, it must be an user path (string)
+		- sPath: the path to the file/directory to link, it must be an user path (string)
+--]]
+function createLink(sLinkPath, sPath)
+	if not exists(sPath) then
+		return false, "The specified path doesn't exists."
+	end
+	sLink = resolveUsrPath(sLinkPath)
+	if sLink == nil then
+		return false, "Invalid Path"
+	end
+	local file = ccfs.open(sLink, "w")
+	if file then
+		file.write("<LINK>: "..sPath)
+		file.close()
+	else
+		return false, "Error opening file "..sLinkPath
+	end
+	return true
+end
+
+--[[
+- isLink (function)
+	* checks if a file is a link
+	* return values:
+		- boolean indicating if the file is a link file (boolean)
+		- the linked path, if it's a link (string, nil)
+	* parameters:
+		- sPath: the path to the file to check, it must be an user path (string)
+--]]
+function isLink(sPath)
+	local sUsrPath = resolveUsrPath(sPath)
+	if sUsrPath ~= nil then
+		local file = ccfs.open(sUsrPath, "r")
+		if file then
+			local sLine = file.readLine()
+			file.close()
+			if sLine then
+				local path = string.match(sLine, "<LINK>: (.+)")
+				if path then
+					return true, path
+				end
+			end
+		end
+	end
+	return false
+end
+
+--[[
+- list (function)
+	* gets a list of the given path's contents
+	* return values:
+		- the list of files and directories (table)
+	* parameters:
+		- sPath: the path to list, it must be an user path (string)
+		- bHidden: boolean indicating if hidden files/directories should be listed (boolean) [optional]
+--]]
+function list(sPath, bHidden)
+	CheckVarTypes(bHidden, "nil", "boolean")
+	local sUsrPath
+	local bLink, sLinkPath = isLink(sPath)
+	if bLink then
+		sUsrPath = resolveUsrPath(sLinkPath)
+	else
+		sUsrPath = resolveUsrPath(sPath)
+	end
+	if sUsrPath == nil then
+		return nil, "Invalid Path"
+	end
+	local tList
+	if bHidden then
+		tList = ccfs.list(sUsrPath)
+	else
+		tList = {}
+		for _,s in ipairs(ccfs.list(sUsrPath)) do
+			if string.sub(s, 1, 1) ~= "." then
+				table.insert(tList, s)
+			end
+		end
+	end
+	if IsRoot(sPath) then
+		for _,t in pairs(tDisks) do
+			if bHidden or string.sub(t.name, 1, 1) ~= "." then
+				table.insert(tList, t.name)
+			end
+		end
+	end
+	return tList
+end
+
+--[[
+- getDiskMountPath (function)
+	* gets the mount path of a disk
+	* return values:
+		- the mount path of the disk (string, nil)
+	* parameters:
+		- sSide: the side of the disk drive to check (string)
+--]]
+function getDiskMountPath(sSide)
+	local d = tDisks[sSide]
+	if d == nil then
+		return nil
+	end
+	return "/"..d.name
+end
+
+-- File class
+
+--[[
+- File (class)
+	* represents a file object
+--]]
+File = class.new("File")
+
+--[[
+- File:initialize (function)
+	* initializes a file object and attemps to open the file
+	* parameters:
+		- sPath: the path to the file, it must be an user path (string)
+		- sMode: the open mode (string)
+--]]
+function File:initialize(sPath, sMode)
+	CheckVarType(sPath, "string")
+	CheckVarTypes(sMode, "string", "nil")
+	local mode = sMode or "r"
+	local bLink, sLinkPath = isLink(sPath)
+	local sUsrPath
+	if bLink then
+		sUsrPath = resolveUsrPath(sLinkPath)
+	else
+		sUsrPath = resolveUsrPath(sPath)
+	end
+	if sUsrPath ~= nil then
+		self.file = ccfs.open(sUsrPath, mode)
+		self.path = sPath
+		self.name = ccfs.getName(sUsrPath)
+	end
+	self.mode = mode
+	self.closed = self.file == nil
+end
+
+--[[
+- File:close (function)
+	* closes the file handle
+--]]
+function File:close()
+	if not self.closed then
+		self.file.close()
+		self.file = nil
+		self.closed = true
+	end
+end
+
+--[[
+- File:isOpen (function)
+	* checks if a file is open
+	* return values:
+		- boolean indicating if the file is open (boolean)
+--]]
+function File:isOpen()
+	return not self.closed
+end
+
+--[[
+- File:read (function)
+	* reads data from the file
+	* return values:
+		- the readed value (string for text files, number for binary files)
+	* parameters:
+		- sFormat: the format to read, nil for binary files (string) [optional]
+	* the file should be open with modes "r" or "rb"
+--]]
+function File:read(sFormat)
+	if not self.closed then
+		if self.mode == "r" then
+			CheckVarTypes(sFormat, "string", "nil")
+			local fmt = sFormat or "*l"
+			if fmt == "*l" then
+				return self.file.readLine()
+			elseif fmt == "*a" then
+				return self.file.readAll()
+			end
+		elseif self.mode == "rb" then
+			return self.file.read()
+		end
+	end
+	return nil
+end
+
+--[[
+- File:readLine (function)
+	* reads a line from the file
+	* return values:
+		- the line readed (string, nil)
+	* the file should be open with mode "r"
+--]]
+function File:readLine()
+	if self.mode == "r" and not self.closed then
+		return self.file.readLine()
+	end
+	return nil
+end
+
+--[[
+- File:readAll (function)
+	* reads all the file
+	* return values:
+		- the file's text (string)
+	* the file should be open with mode "r"
+--]]
+function File:readAll()
+	if self.mode == "r" and not self.closed then
+		return self.file.readAll()
+	end
+	return nil
+end
+
+function File:readShortLE()
+	if not self.closed and self.mode == "rb" then
+		return self.file.read() + self.file.read() * 256
+	end
+	return nil
+end
+
+function File:readShortBE()
+	if not self.closed and self.mode == "rb" then
+		return self.file.read() * 256 + self.file.read()
+	end
+	return nil
+end
+
+function File:readIntLE()
+	if not self.closed and self.mode == "rb" then
+		local r = 0
+		local p = 1
+		for i = 1, 4 do
+			local n = self.file.read()
+			if not n then
+				break
+			end
+			r = r + n * p
+			p = p * 256
+		end
+		return r
+	end
+	return nil
+end
+
+function File:readIntBE()
+	if not self.closed and self.mode == "rb" then
+		local r = 0
+		for i = 1, 4 do
+			local n = self.file.read()
+			if not n then
+				break
+			end
+			r = r * 256 + n
+		end
+		return r
+	end
+	return nil
+end
+
+--[[
+- File:write (function)
+	* writes data to the file
+	* parameters:
+		- val: the value to write (number for binary files, any type for text files)
+	* the file should be open with modes "w", "a", "wb" or "ab"
+--]]
+function File:write(val)
+	if not self.closed then
+		if self.mode == "w" or self.mode == "a" then
+			self.file.write(tostring(val))
+		elseif self.mode == "wb" or self.mode == "ab" then
+			CheckVarType(val, "number")
+			self.file.write(val)
+		end
+	end
+end
+
+function File:writeShortLE(n)
+	if not self.closed and self.mode == "wb" then
+		CheckVarType(n, "number")
+		local r = n % 256
+		self.file.write(r)
+		self.file.write((l - r) / 256)
+	end
+end
+
+function File:writeShortLE(n)
+	if not self.closed and self.mode == "wb" then
+		CheckVarType(n, "number")
+		local r = n % 256
+		self.file.write((n - r) / 256)
+		self.file.write(r)
+	end
+end
+
+function File:writeShortBE(n)
+	if not self.closed and self.mode == "wb" then
+		CheckVarType(n, "number")
+		local r = n % 256
+		self.file.write(r)
+		self.file.write((n - r) / 256)
+	end
+end
+
+function File:writeIntLE(n)
+	if not self.closed and self.mode == "wb" then
+		CheckVarType(n, "number")
+		local t = {}
+		for i = 1, 4 do
+			local r = n % 256
+			t[i] = r
+			n = (n - r) / 256
+		end
+		for i = 4, 1, -1 do
+			self.file.write(t[i])
+		end
+	end
+end
+
+function File:writeIntBE(n)
+	if not self.closed and self.mode == "wb" then
+		CheckVarType(n, "number")
+		for i = 1, 4 do
+			local r = n % 256
+			self.file.write(r)
+			n = (n - r) / 256
+		end
+	end
+end
+
+--[[
+- File:writeLine (function)
+	* writes data to the file and appends a newline
+	* parameters:
+		- the value to write (any type)
+	* the file should be open with modes "w" or "a"
+--]]
+function File:writeLine(val)
+	if not self.closed and (self.mode == "w" or self.mode == "a") then
+		self.file.write(tostring(val).."\n")
+	end
+end
+
+--[[
+- File:getName (function)
+	* gets the name of the file, without the path
+	* return values:
+		- the file's name (string)
+--]]
+function File:getName()
+	if self.closed then
+		return ""
+	end
+	return self.name
+end
+
+--[[
+- File:getPath (function)
+	* gets the path of the file
+	* return values:
+		- the file's path (string)
+--]]
+function File:getPath()
+	if self.closed then
+		return ""
+	end
+	return self.path
+end
+
+--[[
+- File:lines (function)
+	* returns a function that, when called, returns a line of the file
+	* return values:
+		- the function to read lines (function)
+	* the file should be open with mode "r"
+--]]
+function File:lines()
+	if not self.closed and self.mode == "r" then
+		return function()
+			local sLine = self.file.readLine()
+			if sLine then
+				return sLine
+			else
+				self:close()
+				return nil
+			end
+		end
+	end
+	return nil
+end
+
+--[[
+- File:__tostring (function)
+	* gets the string representation of the file
+	* return values:
+		- string representation of the file object (string)
+--]]
+File.setmetamethod("__tostring", function(self)
+	return "File: "..self.path
+end)
+
+--[[
+- open (function)
+	* opens a file
+	* return values:
+		- the opened file object (File)
+	* parameters:
+		- sPath: the path to the file to open, it must be an user path (string)
+		- sMode: the mode to open the file (string)
+--]]
+function open(sPath, sMode)
+	return File(sPath, sMode)
+end
+
+-- System functions
+
+--[[
+- MountDisk (function)
+	* mounts a disk to the file system
+	* parameters:
+		- sSide: the side of the disk to mount (string)
+--]]
+local function MountDisk(sSide)
+	if ccperiph.call(sSide, "hasData") then
+		local name = ccperiph.call(sSide, "getLabel")
+		if name == nil or tDisks[name] ~= nil then -- TODO: check if name exists (?)
+			local i = 1
+			local b = true
+			name = "disk"..i
+			while b do
+				b = false
+				for _,d in pairs(tDisks) do
+					if d.name == name then
+						i = i + 1
+						name = "disk"..i
+						b = true
+						break
+					end
+				end
+			end
+		end
+		tDisks[sSide] = {}
+		tDisks[sSide].name = name
+		tDisks[sSide].path = ccperiph.call(sSide, "getMountPath")
+	end
+end
+
+--[[
+- UnmountDisk (function)
+	* unmounts a disk from the file system
+	* parameters:
+		- sSide: the side of the disk to unmount (string)
+--]]
+local function UnmountDisk(sSide)
+	tDisks[sSide] = nil
+end
+
+-- Set Event Handlers
+
+sys.addEventHandler("disk", function(side)
+	MountDisk(side)
+	return true
+end)
+sys.addEventHandler("disk_eject", function(side)
+	UnmountDisk(side)
+	return true
+end)
+
+for _, s in pairs({ "left", "right", "top", "bottom", "back", "front" }) do
+	if ccperiph.isPresent(s) and ccperiph.getType(s) == "drive" then
+		MountDisk(s)
+	end
+end

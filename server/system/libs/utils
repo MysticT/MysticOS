@@ -1,0 +1,740 @@
+-- Utils Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+local function SerializeInt(n)
+	local s = ""
+	repeat
+		local i = n % 128
+		if n >= 128 then
+			i = i + 128
+		end
+		s = s .. string.char(i)
+		n = math.floor(n / 128)
+	until n == 0
+	return s
+end
+
+local function UnserializeInt(s, pos)
+	local k = pos
+	local i = 0
+	local m = 1
+	while true do
+		local b = string.byte(string.sub(s, k, k))
+		i = i + m * (b % 128)
+		m = m * 128
+		k = k + 1
+		if b < 128 then break end
+	end
+	return i, k
+end
+
+local nextid_key = {}
+local function SerializeInternal(obj, tTracking)
+	if obj ~= nil and tTracking[obj] ~= nil then
+		return "\06"..SerializeInt(tTracking[obj])
+	end
+	local tp = type(obj)
+	if tp == "table" then
+		local id = tTracking[nextid_key]
+		tTracking[nextid_key] = id + 1
+		tTracking[obj] = id
+		local s = "\05"
+		local ikeys = {}
+		for k, v in ipairs(obj) do
+			ikeys[k] = v
+			s = s..SerializeInternal(v, tTracking)
+		end
+		s = s..SerializeInternal(nil, tTracking)
+		for k, v in pairs(obj) do
+			if ikeys[k] == nil then
+				s = s..SerializeInternal(k, tTracking)..SerializeInternal(v, tTracking)
+			end
+		end
+		s = s..SerializeInternal(nil, tTracking)
+		return s
+	elseif tp == "number" then
+		local ns = tostring(obj)
+		return "\04"..SerializeInt(string.len(ns))..ns
+	elseif tp == "string" then
+		return "\03"..SerializeInt(string.len(obj))..obj
+	elseif tp == "boolean" then
+		if obj then
+			return "\01"
+		else
+			return "\02"
+		end
+	elseif tp == "nil" then
+		return "\00"
+	else
+		error("Cannot serialize type "..tp)
+	end
+end
+
+-- Lib classes
+
+-- String class
+
+String = class.new("String")
+
+function String:initialize(val)
+	if val == nil then
+		self.str = ""
+	else
+		self.str = tostring(val)
+	end
+end
+
+function String:isEmpty()
+	return #self.str == 0
+end
+
+function String:at(nPos)
+	CheckVarType(nPos, "number")
+	return string.sub(self.str, nPos, nPos)
+end
+
+function String:byte(nPos)
+	CheckVarType(nPos, "number")
+	return string.byte(self.str, nPos)
+end
+
+function String:sub(nStart, nEnd)
+	CheckVarType(nStart, "number")
+	CheckVarTypes(nEnd, "nil", "number")
+	return String(string.sub(self.str, nStart, nEnd))
+end
+
+function String:lenght()
+	return #self.str
+end
+
+function String:append(val)
+	self.str = self.str..tostring(val)
+	return self
+end
+
+function String:prepend(val)
+	self.str = tostring(val)..self.str
+	return self
+end
+
+function String:fill(sChar, nLen)
+	CheckVarType(sChar, "string")
+	CheckVarTypes(nLen, "nil", "number")
+	local len = nLen or #self.str
+	self.str = string.rep(string.sub(sChar, 1, 1), len)
+	return self
+end
+
+function String:insert(val, nPos)
+	CheckVarType(nPos, "number")
+	self.str = string.sub(self.str, 1, nPos)..tostring(val)..string.sub(self.str, nPos + 1)
+	return self
+end
+
+function String:replace(nPos, nLen, val)
+	CheckVarsType("number", nPos, nLen)
+	self.str = string.sub(self.str, 1, nPos)..tostring(val)..string.sub(self.str, nPos + nLen)
+	return self
+end
+
+function String:remove(nPos, nLen)
+	CheckVarType(nPos, "number")
+	CheckVarTypes(nLen, "nil", "number")
+	local len = nLen or 1
+	self.str = string.sub(self.str, 1, nPos)..string.sub(self.str, nPos + len)
+	return self
+end
+
+function String:chop(nLen)
+	CheckVarType(nLen, "number")
+	local len = #self.str - nLen
+	if len > 0 then
+		self.str = string.sub(self.str, 1, len)
+	else
+		self.str = ""
+	end
+	return self
+end
+
+function String:truncate(nPos)
+	CheckVarType(nPos, "number")
+	self.str = string.sub(self.str, 1, nPos)
+	return self
+end
+
+function String:startsWith(val, bPlain)
+	CheckVarTypes(bPlain, "nil", "boolean")
+	local sStart = tostring(val)
+	if bPlain then
+		return string.sub(self.str, 1, #sStart) == sStart
+	else
+		return string.match(self.str, "^"..sStart) ~= nil
+	end
+end
+
+function String:endsWith(val, bPlain)
+	CheckVarTypes(bPlain, "nil", "boolean")
+	local sEnd = tostring(val)
+	if bPlain then
+		return string.sub(self.str, #self.str - #sEnd) == sEnd
+	else
+		return string.match(self.str, sEnd.."$") ~= nil
+	end
+end
+
+function String:indexOf(val, nStart, bPlain)
+	CheckVarType(nStart, "number")
+	CheckVarTypes(bPlain, "nil", "boolean")
+	local index = string.find(self.str, tostring(val), nStart, bPlain)
+	return index
+end
+
+function String:contains(val, bPlain)
+	CheckVarTypes(bPlain, "nil", "boolean")
+	return string.find(self.str, tostring(val), 1, bPlain) ~= nil
+end
+
+function String:count(val, bPlain)
+	CheckVarTypes(bPlain, "nil", "boolean")
+	local sStr = tostring(val)
+	local count = 0
+	local i = string.find(self.str, sStr, 1, bPlain)
+	while i do
+		count = count + 1
+		i = string.find(self.str, sStr, i + 1, bPlain)
+	end
+	return count
+end
+
+function String:left(nLen)
+	CheckVarType(nLen, "number")
+	return String(string.sub(self.str, 1, nLen))
+end
+
+function String:leftJustified(nLen, sChar, bTruncate)
+	CheckVarType(nLen, "number")
+	CheckVarType(sChar, "string")
+	CheckVarTypes(bTruncate, "nil", "boolean")
+	if #self.str > nLen then
+		if bTruncate then
+			return String(string.sub(self.str, 1, nLen))
+		else
+			return String(self.str)
+		end
+	else
+		local len = nLen - #self.str
+		return String(self.str..string.rep(string.sub(sChar, 1, 1), len))
+	end
+end
+
+function String:mid(nPos, nLen)
+	CheckVarType(nPos, "number")
+	CheckVarTypes(nLen, "nil", "number")
+	return String(string.sub(self.str, nPos, nPos + nLen))
+end
+
+function String:right(nLen)
+	CheckVarType(nLen, "number")
+	return String(string.sub(self.str, #self.str - nLen))
+end
+
+function String:rightJustified(nLen, sChar, bTruncate)
+	CheckVarType(sChar, "string")
+	CheckVarType(nLen, "number")
+	CheckVarTypes(bTruncate, "nil", "boolean")
+	if #self.str > nLen then
+		if bTruncate then
+			return String(string.sub(self.str, #self.str - nLen))
+		else
+			return String(self.str)
+		end
+	else
+		local len = nLen - #self.str
+		return String(string.rep(string.sub(sChar, 1, 1), len)..self.str)
+	end
+end
+
+function String:repeated(nTimes)
+	CheckVarType(nTimes, "number")
+	return String(string.rep(self.str, nTimes))
+end
+
+function String:simplified()
+	local str = string.gsub(self.str, "^%s*(.-)%s*$", "%1")
+	return String(string.gsub(str, "%s+", " "))
+end
+
+function String:trimmed()
+	return String(string.gsub(self.str, "^%s*(.-)%s*$", "%1"))
+end
+
+function String:lower()
+	return String(string.lower(self.str))
+end
+
+function String:upper()
+	return String(string.upper(self.str))
+end
+
+function String:split(sep, bSkipEmpty, bPlain)
+	CheckVarTypes(bSkipEmpty, "nil", "boolean")
+	CheckVarTypes(bPlain, "nil", "boolean")
+	local sSep = tostring(sep)
+	local l = {}
+	local _start = 1
+	local _extra = 0
+	local _end = string.find(self.str, sSep, 1, bPlain)
+	while _end ~= nil do
+		if _start ~= _end or not bSkipEmpty then
+			table.insert(l, string.sub(self.str, _start, _end))
+		end
+		_start = _end + #sSep
+		if #sSep == 0 then
+			_extra = 1
+		end
+		_end = string.find(self.str, sSep, _start + _extra, bPlain)
+	end
+	if _start ~= #self.str or not bSkipEmpty then
+		table.insert(l, string.sub(self.str, _start))
+	end
+	return l
+end
+
+function String:section(sep, nStart, nEnd, bSkipEmpty, bPlain, bIncludeLeadingSep, bIncludeTrailingSep)
+	CheckVarsType("number", nStart, nEnd)
+	CheckVarTypes(bIncludeLeadingSep, "nil", "boolean")
+	CheckVarTypes(bIncludeTrailingSep, "nil", "boolean")
+	local sections = self:split(sep, bSkipEmpty, bPlain)
+	if #sections == 0 then
+		return ""
+	end
+	if not bSkipEmpty then
+		if nStart < 0 then
+			nStart = nStart + #sections
+		end
+		if nEnd < 0 then
+			nEnd = nEnd + #sections
+		end
+	else
+		local skip = 0;
+		for k = 0, #sections do
+			if #sections[k] == 0 then
+				skip = skip + 1
+			end
+		end
+		if nStart < 0 then
+			nStart = nStart + #sections - skip;
+		end
+		if nEnd < 0 then
+			nEnd = nEnd + #sections - skip;
+		end
+	end
+	local x = 0
+	local str = ""
+	local first_i = nStart
+	local last_i = nEnd
+	local i = 1
+	while x <= nEnd and i < #sections do
+		if x >= nStart then
+			if x == nStart then
+				first_i = i
+			else
+				str = str..sSep
+			end
+			if x == nEnd then
+				last_i = i
+			end
+			str = str..sections[i]
+		end
+		if #sections > 0 or not bSkipEmpty then
+			x = x + 1
+		end
+		i = i + 1
+	end
+	if bIncludeLeadingSep and first_i > 0 then
+		str = sSep..str
+	end
+	if bIncludeTrailingSep and last_i < #sections - 1 then
+		str = str..sSep
+	end
+    return String(str)
+end
+
+function String:reverse()
+	return String(string.reverse(self.str))
+end
+
+function String:toCharTable(nStart, nEnd)
+	CheckVarTypes(nStart, "nil", "number")
+	CheckVarTypes(nEnd, "nil", "number")
+	local _start = nStart or 1
+	local _end = nEnd or #self.str
+	local t = {}
+	for i = _start, _end do
+		table.insert(t, string.sub(self.str, i, i))
+	end
+	return t
+end
+
+function String:toByteTable(nStart, nEnd)
+	CheckVarTypes(nStart, "nil", "number")
+	CheckVarTypes(nEnd, "nil", "number")
+	local _start = nStart or 1
+	local _end = nEnd or #self.str
+	local t = {}
+	for i = _start, _end do
+		table.insert(t, string.byte(self.str, i))
+	end
+	return t
+end
+
+function String.fromCharTable(tChars)
+	CheckVarType(tChars, "table")
+	return String(table.concat(tChars))
+end
+
+function String.fromByteTable(tBytes)
+	CheckVarType(tBytes, "table")
+	return String(string.char(unpack(tBytes)))
+end
+
+function String:toNumber(base)
+	return tonumber(self.str, base)
+end
+
+String.setmetamethod("__tostring", function(self)
+	return self.str
+end)
+
+String.setmetamethod("__add", function(self, obj)
+	return String(self.str..tostring(obj))
+end)
+
+String.setmetamethod("__concat", function(self, obj)
+	return String(self.str..tostring(obj))
+end)
+
+String.setmetamethod("__eq", function(self, obj)
+	return self.str == tostring(obj)
+end)
+
+String.setmetamethod("__lt", function(self, obj)
+	return self.str < tostring(obj)
+end)
+
+String.setmetamethod("__le", function(self, obj)
+	return self.str <= tostring(obj)
+end)
+
+-- Stack class
+
+Stack = class.new("Stack")
+
+function Stack:initialize()
+	self.stack = {}
+end
+
+function Stack:push(val)
+	if val ~= nil then
+		table.insert(self.stack, val)
+	end
+	return self
+end
+
+function Stack:pop()
+	return table.remove(self.stack)
+end
+
+function Stack:top()
+	return self.stack[#self.stack]
+end
+
+function Stack:empty()
+	return #self.stack == 0
+end
+
+-- Queue class
+
+Queue = class.new("Queue")
+
+function Queue:initialize()
+	self.queue = {}
+end
+
+function Queue:enqueue(val)
+	if val ~= nil then
+		table.insert(self.queue, val)
+	end
+	return self
+end
+
+function Queue:dequeue()
+	return table.remove(self.queue, 1)
+end
+
+function Queue:first()
+	return self.queue[1]
+end
+
+function Queue:empty()
+	return #self.queue == 0
+end
+
+-- Set class
+
+Set = class.new("Set")
+
+function Set:initialize()
+	self.set = {}
+end
+
+function Set:add(val)
+	if val ~= nil then
+		self.set[val] = true
+	end
+	return self
+end
+
+function Set:remove(val)
+	if val ~= nil then
+		self.set[val] = nil
+	end
+	return self
+end
+
+function Set:contains(val)
+	return val ~= nil and self.set[val] ~= nil
+end
+
+function Set:get()
+	local _, val = next(self.set)
+	return val
+end
+
+function Set:empty()
+	return #self.set == 0
+end
+
+-- Hash class
+
+Hash = class.new("Hash")
+
+function Hash:initialize()
+	self.hash = {}
+end
+
+function Hash:add(key, val)
+	if key ~= nil and val ~= nil and self.hash[key] == nil then
+		self.hash[key] = val
+	end
+	return self
+end
+
+function Hash:remove(key)
+	if key ~= nil then
+		self.hash[key] = nil
+	end
+	return self
+end
+
+function Hash:get(key)
+	if key == nil then
+		return nil
+	end
+	return self.hash[key]
+end
+
+function Hash:keys()
+	local t = {}
+	for k,_ in pairs(self.hash) do
+		table.insert(t, k)
+	end
+	return t
+end
+
+function Hash:hasKey(key)
+	if key == nil then
+		return false
+	end
+	return self.hash[key] ~= nil
+end
+
+-- MultiHash class
+
+MultiHash = class.new("MultiHash")
+
+function MultiHash:initialize()
+	self.hash = {}
+end
+
+function MultiHash:add(key, val)
+	if key ~= nil and val ~= nil then
+		if self.hash[key] == nil then
+			self.hash[key] = {}
+		end
+		self.hash[key][val] = true
+	end
+	return self
+end
+
+function MultiHash:remove(key, val)
+	if key ~= nil and val ~= nil and self.hash[key] ~= nil then
+		self.hash[key][val] = nil
+		if #self.hash[key] == 0 then
+			self.hash[key] = nil
+		end
+	end
+	return self
+end
+
+function MultiHash:get(key)
+	if key == nil or self.hash[key] == nil then
+		return nil
+	end
+	local t = {}
+	for _,v in pairs(self.hash[key]) do
+		table.insert(t, v)
+	end
+	return t
+end
+
+function MultiHash:keys()
+	local t = {}
+	for k,_ in pairs(self.hash) do
+		table.insert(t, k)
+	end
+	return t
+end
+
+function MultiHash:hasKey(key)
+	if key == nil then
+		return false
+	end
+	return self.hash[key] ~= nil
+end
+
+-- Lib functions
+
+function formatString(sFmt, ...)
+	return String(string.format(tostring(sFmt), ...))
+end
+
+function formatTime(nTime, bAmPm)
+	local nHour = math.floor(nTime)
+        local nMinute = math.floor((nTime - nHour) * 60)
+	local bPm = false
+        if bAmPm and nHour > 12 then
+		nHour = nHour - 12
+		bPm = true
+	end
+	if bAmPm then
+		return formatString("%02d:%02d %s", nHour, nMinute, (bPm and "pm") or "am")
+	end
+	return formatString("%02d:%02d", nHour, nMinute)
+end
+
+function tabulate(w, ...)
+	CheckVarType(w, "number")
+	local tAll = { ... }
+	local nMaxLen = w / 8
+	for n, t in pairs(tAll) do
+		for n, sItem in pairs(t) do
+			nMaxLen = math.max(string.len(sItem) + 1, nMaxLen)
+		end
+	end
+	local nCols = math.floor(w / nMaxLen)
+	local str = String()
+	for _,t in pairs(tAll) do
+		if #t > 0 then
+			local nCol = 1
+			for _,s in ipairs(t) do
+				if nCol > nCols then
+					nCol = 1
+					str = str.."\n"
+				end
+				local _s = String(s):leftJustified(math.floor(w / nCols), " ")
+				str = str.._s
+				nCol = nCol + 1
+			end
+		end
+	end
+	return str
+end
+
+function serialize(obj)
+	return SerializeInternal(obj, { [nextid_key] = 0 })
+end
+
+function unserialize(s)
+	CheckVarType(s, "string")
+	local nPos = 1
+	local tTracking = {}
+	local nNextId = 0
+	local function Internal()
+		local sType = string.sub(s, nPos, nPos)
+		local nLen
+		nPos = nPos + 1
+		if sType == "\00" then
+			return nil
+		elseif sType == "\01" then
+			return true
+		elseif sType == "\02" then
+			return false
+		elseif sType == "\03" then
+			nLen, nPos = UnserializeInt(s, nPos)
+			local sStr = string.sub(s, nPos, nPos + nLen - 1)
+			nPos = nPos + nLen
+			return sStr
+		elseif sType == "\04" then
+			nLen, nPos = UnserializeInt(s, nPos)
+			local sNum = string.sub(s, nPos, nPos + nLen - 1)
+			nPos = nPos + nLen
+			return tonumber(sNum)
+		elseif sType == "\05" then
+			local nId = nNextId
+			nNextId = nId + 1
+			local t = {}
+			tTracking[nId] = t
+			local k = 1
+			while true do
+				local v = Internal()
+				if v == nil then break end
+				t[k] = v
+				k = k + 1
+			end
+			while true do
+				local k = Internal()
+				if k == nil then break end
+				local v = Internal()
+				if v == nil then break end
+				t[k] = v
+			end
+			return t
+		elseif sType == "\06" then
+			local nId
+			nId, nPos = UnserializeInt(s, nPos)
+			return tTracking[nId]
+		else
+			return nil
+		end
+	end
+	return Internal()
+end

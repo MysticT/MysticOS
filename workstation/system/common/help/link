@@ -1,0 +1,5 @@
+link creates link files.
+
+ex:
+"link foo bin/edit" creates a link file called "foo" that links to the "bin/edit" file
+"link bar /bin" creates a link file called bar that links to the "bin" directory

@@ -1,0 +1,174 @@
+Functions in the File System Lib:
+- fs.exists(path)
+	* returns whether the file/directory "path" exists
+	* return values:
+		- boolean indicating if the file exists (boolean)
+	* parameters:
+		- path: the path to the file/directory (string)
+- fs.isDir(path)
+	* returns true if "path" is a directory, false otherwise
+	* return values:
+		- boolean indicating if the path is a directory (boolean)
+	* parameters:
+		- path: the path to the file/directory (string)
+- fs.isReadOnly(path)
+	* returns whether "path" is a read-only file/directory
+	* return values:
+		- boolean indicating if the file/directory is read-only (boolean)
+	* parameters:
+		- path: the path to the file/directory (string)
+- fs.getName(path)
+	* returns the name of the file "path"
+	* return values:
+		- the name of the file (string)
+	* parameters:
+		- path: the path to the file (string)
+- fs.getDrive(path)
+	* gets the drive the path is in
+	* return values:
+		- the drive the path is in (string)
+	* parameters:
+		- path: the path to the file/directory (string)
+- fs.getSize(path)
+	* gets the size of the file "path"
+	* return values:
+		- the size of the file (number)
+	* parameters:
+		- path: the path to the file (string)
+- fs.makeDir(path)
+	* creates a directory in "path"
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- path: the path to the directory string)
+- fs.move(src, dest, overwrite)
+	* moves the file or directory from "src" to "dest", if the destination exists and it's a directory it combines the contents of both
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the number of directories moved, on error a string containing the error message (number, string)
+		- the number of files moved, nil on error (number, nil)
+	* parameters:
+		- src: path to the source file/directory (string)
+		- dest: destination path (string)
+		- overwrite: boolean indicating if it should overwrite existing files
+- fs.copy(src, dest, overwrite)
+	* copies the file or directory from "src" to "dest", if the destination exists and it's a directory it combines the contents of both
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the number of directories copied, on error a string containing the error message (number, string)
+		- the number of files copied, nil on error (number, nil)
+	* parameters:
+		- src: path to the source file/directory (string)
+		- dest: destination path (string)
+		- overwrite: boolean indicating if it should overwrite existing files
+- fs.delete(path)
+	* deletes the file/directory "path"
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the number of directories deleted, on error a string containing the error message (number, string)
+		- the number of files deleted, nil on error (number, nil)
+	* parameters:
+		- path: the path to the file/directory (string)
+- fs.combine(path, localPath)
+	* returns the combined path ("path/localPath")
+	* return values:
+		- the combined path (string)
+	* parameters:
+		- path: the main path (string)
+		- localPath: the local path on "path" (string)
+- fs.createLink(linkPath, path)
+	* creates a link file on "linkPath" to "path"
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- linkPath: path to the link file to create (string)
+		- path: path to open from the link file (string)
+- fs.isLink(path)
+	* returns whether the file "path" is a link
+	* return values:
+		- boolean indicating if the file is a link (boolean)
+		- the path the link points to, nil if it's not a link (string, nil)
+	* parameters:
+		- path: the path to the file (string)
+- fs.list(path, hidden)
+	* returns a list of files and directories in the directory "path"
+	* return values:
+		- the list of files and directories (table)
+	* parameters:
+		- path: the path to the directory (string)
+		- hidden: true to show hidden files and directories (boolean)
+- fs.getDiskMountPath(side)
+	* gets the mount path of a disk
+	* return values:
+		- the mount path of the disk, nil if no disk present (string, nil)
+	* parameters:
+		- side: the side of the disk drive (string)
+- fs.open(path, mode)
+	* creates a new File object that opens the file "path" with mode "mode"
+	* return values:
+		- the created File object (File)
+	* parameters:
+		- path: the path to the file (string)
+		- mode the mode to open the file (string)
+
+Classes in the Lib:
+- File
+	- new(path, mode)
+		* creates a File object and opens the file "path"
+		* return values:
+			- the created File object (File)
+		* parameters:
+			- path: the path to the file (string)
+			- mode: the mode to open (string)
+	- close()
+		* closes the file handle
+	- isOpen()
+		* returns true if the file is open, false otherwise
+		* return values:
+			- boolean indicating if the file is open (boolean)
+	- read(format)
+		* reads from the file
+		* return values:
+			- the readed value (string for text files, number for binary files)
+		* parameters:
+			- format: the format to read or nil for binary files (string, nil)
+		* read formats: "*l" read line, "*a" read all
+		* the file should be open with mode "r" or "rb"
+	- readLine()
+		* reads a line from the file
+		* return values:
+			- the line readed (string)
+		* the file should be open with mode "r"
+	- readAll()
+		* reads all the file
+		* return values:
+			- the file's text (string)
+		* the file should be open with mode "r"
+	- write(val)
+		* writes "val" to the file
+		* parameters:
+			- val: the value to write (number for binary files, any type for text files)
+		* the file should be open with mode "w", "a", "wb" or "ab"
+	- writeLine(val)
+		* writes "val" to the file and appends a newline ("\n") at the end
+		* parameters:
+			- val: the value to write (any type)
+		* the file should be open with mode "w" or "a"
+	- getName()
+		* gets the name of the file
+		* return values:
+			- the file name (string)
+	- getPath()
+		* gets the path to the file
+		* return values:
+			- the path to the file (string)
+	- lines()
+		* returns a function that, when called, returns a line from the file
+		* return values:
+			- the function to read lines (function)
+		* the file should be open with mode "r"
+
+All the functions affect only the current user's files.
+Open modes: r, rb, w, wb, a, ab

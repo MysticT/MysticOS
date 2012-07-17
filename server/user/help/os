@@ -1,0 +1,150 @@
+Functions in the OS Lib:
+- os.version()
+	* gets the OS version string
+	* return values:
+		- the version string (string)
+- os.versionNum()
+	* gets the OS version number
+	* return values:
+		- the version number (number)
+- os.computerID()
+	* gets this computer ID number
+	* return values:
+		- the ID of this computer (number)
+- os.getComputerLabel()
+	* gets the label of this computer
+	* return values:
+		- the computer's label (string)
+- os.setComputerLabel(label)
+	* sets the label for this computer
+	* parameters:
+		- label: the label to set (string)
+- os.shutdown()
+	* shuts down the computer
+- os.reboot()
+	* reboots the computer
+- os.pullEvent(filters)
+	* gets the next event on the queue
+	* return values:
+		- the event type (string)
+		- any arguments of the event
+	* parameters:
+		- filters: event type (or types) to get, skip any other event (string) [variable]
+- os.queueEvent(evt, args)
+	* enqueue an event
+	* parameters:
+		- evt: the event type (string)
+		- args: the event arguments (any type) [variable]
+- os.clock()
+	* returns the number of seconds of CPU time for the program
+	* return values:
+		- CPU time (number)
+- os.time()
+	* returns the current time (in-game)
+	* return values:
+		-  the time (number)
+- os.startTimer(time)
+	* starts a timer with "time" timeout
+	* return values:
+		- a timer, given as argument to the "timer" event (table)
+	* parameters:
+		- time: the timeout (number)
+- os.setAlarm(time)
+	* sets an alarm at the given Minecraft hour
+	* return values:
+		- an alarm table, given as argument to the "alarm" event (table)
+	* parameters:
+		- time: the time to trigger the alarm (number)
+- os.sleep(time)
+	* puts the program on sleep mode for the given time, ignoring any events occuerred in that period
+	* parameters:
+		- time: the time to sleep (number)
+- os.loadSharedLib(path)
+	* loads a shared library to use in programs
+	* return values:
+		- a boolean indicating if the operation was successful (boolean)
+		- a string containing the error message, if any (string, nil)
+	* parameters:
+		- path: the path to the library file (string)
+- os.unloadSharedLib(name)
+	* unloads a shared library
+	* return values:
+		- a boolean indicating if the operation was successful (boolean)
+		- a string containing the error message, if any (string, nil)
+	* parameters:
+		- name: the library name (string)
+- os.unloadSharedLibs()
+	* unloads every loaded shared libraries
+- os.listLibs(all)
+	* gets a list of the loaded shared libraries
+	* return values:
+		- the list of shared libraries (table)
+	* parameters:
+		- all: boolean indicating if the system/default libraries should be listed (boolean) [optional]
+- os.setEnvVar(name, val)
+	* sets the environment variable "name" to "val"
+	* parameters:
+		- name: the variable name (string)
+		- val: the value of the variable (string, number, boolean)
+- os.getEnvVar(name)
+	* gets the value of the environment variable "name"
+	* return values:
+		- the value of the environment variable (string, number, boolean)
+	* parameters:
+		- name: the variable name (string)
+- os.clearEnvVars()
+	* removes all the environment variables
+- os.createProcess(name)
+	* creates a new process
+	* return values:
+		- process id (number)
+	* parameters:
+		- name: the process name (string)
+- os.killProcess(pid)
+	* kills a process and all its threads
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+	* parameters:
+		- pid: the process id (number)
+- os.getProcesses()
+	* gets a list of all running processes
+	* return values:
+		- list of processes (table)
+- os.processCount()
+	* gets the number of running processes
+	* return values:
+		- number of processes running (number)
+- os.runningProcess()
+	* gets the pid of the current process
+	* return values:
+		- pid of the running process (number)
+- os.createThread(pid, func)
+	* creates a new thread on a process
+	* return values:
+		- the thread's id, nil on error (number, nil)
+	* parameters:
+		- pid: the id of the process to add the thread (number)
+		- func: the function to run on the new thread (function)
+- os.killThread(pid, tid)
+	* kills the specified thread
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+	* parameters:
+		- pid: the id of the process to kill it's thread (number)
+		- tid: the id of the thread to kill (number)
+- os.getThreads(pid)
+	* gets a list of the threads on a process
+	* return values:
+		- list of threads on the process, nil if the process doesn't exist (table, nil)
+	* parameters:
+		- pid: the id of the process (number)
+- os.threadCount(pid)
+	* gets the number of threads on a process
+	* return values:
+		- the number of threads (number)
+	* parameters:
+		- pid: the id of the process (number)
+- os.runningThread()
+	* gets the id of the current thread
+	* return values:
+		- the id of the runnin thread (number)

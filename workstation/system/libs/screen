@@ -1,0 +1,271 @@
+-- Screen Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+-- Output modes
+outputComputerOnly = 1
+outputMonitorOnly = 2
+outputDuplicate = 3
+
+-- local vars and functions
+
+local nOutMode =  outputComputerOnly
+local tMonitors = {}
+local bMax = false
+
+local tBuffer
+local nWidth, nHeight = 0, 0
+local nCursorX, nCursorY = 0, 0
+local bBlink = false
+local sEmptyLine = ""
+local nDelay = 0.05
+
+local function setSize(w, h)
+	sEmptyLine = string.rep(" ", w)
+	local tmp = {}
+	local s
+	if w > nWidth then
+		s = string.rep(" ", w - nWidth)
+	end
+	for y = 1, math.min(nHeight, h) do
+		if w > nWidth then
+			tmp[y] = tBuffer[y]..s
+		else
+			tmp[y] = string.sub(tBuffer[y], 1, w)
+		end
+	end
+	if h > nHeight then
+		for y = nHeight + 1, h do
+			tmp[y] = sEmptyLine
+		end
+	end
+	tBuffer = tmp
+	nWidth, nHeight = w, h
+end
+
+local function clearBuffer()
+	tBuffer = {}
+	for y = 1, nHeight do
+		tBuffer[y] = sEmptyLine
+	end
+end
+
+local function resize()
+	local w, h
+	if bit32.btest(nOutMode, outputComputerOnly) then
+		w, h = ccterm.getSize()
+	end
+	if bit32.btest(nOutMode, outputMonitorOnly) then
+		for _,mon in pairs(tMonitors) do
+			local _w, _h = mon.getSize()
+			if bMax then
+				if (w == nil or h == nil) or (_w * _h) > (w * h) then
+					w, h = _w, _h
+				end
+			else
+				if (w == nil or h == nil) or (_w * _h) < (w * h) then
+					w, h = _w, _h
+				end
+			end
+		end
+	end
+	if w and h and (w ~= nWidth or h ~= nHeight) then
+		setSize(w, h)
+	end
+end
+
+local function init()
+	nCursorX, nCursorY = 1, 1
+	nWidth, nHeight = ccterm.getSize()
+	sEmptyLine = string.rep(" ", nWidth)
+	tBuffer = {}
+	for y = 1, nHeight do
+		tBuffer[y] = sEmptyLine
+	end
+end
+
+-- Lib functions
+
+function clear()
+	clearBuffer()
+end
+
+function clearLine(nLine)
+	nLine = nLine or nCursorY
+	tBuffer[nLine] = sEmptyLine
+end
+
+function setChar(x, y, c)
+	if x > 0 and x <= nWidth and y > 0 and y <= nHeight then
+		c = string.sub(tostring(c), 1, 1)
+		tBuffer[y] = string.sub(tBuffer[y], 1, x - 1)..c..string.sub(tBuffer[y], x + 1)
+	end
+end
+
+function getChar(x, y)
+	if x > 0 and x <= nWidth and y > 0 and y <= nHeight then
+		return string.sub(tBuffer[y], x, x)
+	end
+end
+
+function write(s, x, y)
+	x = x or nCursorX
+	y = y or nCursorY
+	if x <= nWidth and y > 0 and y <= nHeight then
+		s = tostring(s)
+		if x <= 0 then
+			s = string.sub(s, (1 - x) + 1)
+			x = 1
+		end
+		local len = #s
+		if x + len > nWidth then
+			s = string.sub(s, 1, nWidth - x)
+			len = #s
+			nCursorX = x + len + 1
+		else
+			nCursorX = x + len
+		end
+		nCursorY = y
+		tBuffer[y] = string.sub(tBuffer[y], 1, x - 1)..s..string.sub(tBuffer[y], x + len)
+	end
+end
+
+function read(x, y, len)
+	if x > 0 and x <= nWidth and y > 0 and y <= nHeight then
+		return string.sub(tBuffer[y], x, x + len)
+	end
+end
+
+function redraw()
+	local bTerm = bit32.btest(nOutMode, outputComputerOnly)
+	local bMon = bit32.btest(nOutMode, outputMonitorOnly)
+	if bTerm then
+		ccterm.clear()
+	end
+	if bMon then
+		for _,mon in pairs(tMonitors) do
+			mon.clear()
+		end
+	end
+	for y, s in ipairs(tBuffer) do
+		if bTerm then
+			ccterm.setCursorPos(1, y)
+			ccterm.write(s)
+		end
+		if bMon then
+			for _,mon in pairs(tMonitors) do
+				mon.setCursorPos(1, y)
+				mon.write(s)
+			end
+		end
+	end
+	if bTerm then
+		ccterm.setCursorPos(nCursorX, nCursorY)
+		ccterm.setCursorBlink(bBlink)
+	end
+	if bMon then
+		for _,mon in pairs(tMonitors) do
+			mon.setCursorPos(nCursorX, nCursorY)
+			mon.setCursorBlink(bBlink)
+		end
+	end
+end
+
+function getSize()
+	return nWidth, nHeight
+end
+
+function getWidth()
+	return nWidth
+end
+
+function getHeight()
+	return nHeight
+end
+
+function getCursorPos()
+	return nCursorX, nCursorY
+end
+
+function setCursorPos(x, y)
+	CheckVarsType("number", x, y)
+	nCursorX, nCursorY = x, y
+end
+
+function setCursorBlink(b)
+	CheckVarType(b, "boolean")
+	bBlink = b
+end
+
+function scroll(n)
+	if n >= nHeight then
+		clearBuffer()
+	else
+		for y = 1, nHeight - n do
+			tBuffer[y] = tBuffer[y + n]
+		end
+		for y = (nHeight - n) + 1, nHeight do
+			tBuffer[y] = sEmptyLine
+		end
+	end
+end
+
+function setOutputMode(nMode)
+	CheckVarType(nMode, "number")
+	nOutMode = nMode
+end
+
+function getOutputMode()
+	return nOutMode
+end
+
+function addMonitor(sSide)
+	if peripheral.isA(sSide, "monitor") then
+		tMonitors[sSide] = peripheral.wrap(sSide)
+		resize()
+		return true
+	end
+	return false
+end
+
+function removeMonitor(sSide)
+	CheckVarType(sSide, "string")
+	if tMonitors[sSide] then
+		tMonitors[sSide] = nil
+		resize()
+	end
+end
+
+function getMonitors()
+	return table.keys(tMonitors)
+end
+
+-- Initialize
+init()
+
+-- Set event handler
+local timer = os.startTimer(nDelay)
+sys.addEventHandler("timer", function(t)
+	if t == timer then
+		redraw()
+		timer = os.startTimer(nDelay)
+		return true
+	end
+	return false
+end)

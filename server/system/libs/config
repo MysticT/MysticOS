@@ -1,0 +1,69 @@
+-- Config Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+local function LoadFromFile(hFile)
+	local tConfig = {}
+	local sLine = hFile:readLine()
+	while sLine do
+		local k, v = string.match(sLine, "(.+) = (.+)")
+		if not k or not v then
+			return nil
+		end
+		tConfig[k] = v
+		sLine = hFile:readLine()
+	end
+	return tConfig
+end
+
+local function SaveToFile(hFile, tConfig)
+	for k, v in pairs(tConfig) do
+		local sK = tostring(k)
+		local sV = tostring(v)
+		hFile:writeLine(sK.." = "..sV)
+	end
+end
+
+-- Lib functions
+
+function load(sFileName)
+	local hFile = fs.open(sFileName, "r")
+	if hFile:isOpen() then
+		local tConfig = LoadFromFile(hFile)
+		hFile:close()
+		if not tConfig then
+			return nil, "Error loading config file"
+		end
+		return tConfig
+	else
+		return nil, "Error opening file "..sFileName
+	end
+end
+
+function save(sFileName, tConfig)
+	CheckVarType(tConfig, "table")
+	local hFile = fs.open(sFileName, "w")
+	if hFile:isOpen() then
+		SaveToFile(hFile, tConfig)
+		hFile:close()
+	else
+		return false, "Error opening file "..sFileName
+	end
+	return true
+end

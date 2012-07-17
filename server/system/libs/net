@@ -1,0 +1,175 @@
+-- Net Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+local sModemSide
+local bOpen = false
+local sMsgHeader = "\77\79\83\45\77\83\71"
+
+local function ModemSide()
+	if not sModemSide then
+		sModemSide = peripheral.sideOf("modem")
+	end
+	return sModemSide
+end
+
+local function SendStr(str, id)
+	if id then
+		peripheral.call(sModemSide, "send", id, str)
+	else
+		peripheral.call(sModemSide, "broadcast", str)
+	end
+end
+
+-- Lib functions
+
+function connect()
+	if bOpen then
+		return true
+	end
+	if not ModemSide() then
+		return false, "No modem found."
+	end
+	peripheral.call(sModemSide, "open")
+	bOpen = true
+	return true
+end
+
+function disconnect()
+	if not bOpen then
+		return true
+	end
+	peripheral.call(sModemSide, "close")
+	return true
+end
+
+function isConnected()
+	return bOpen
+end
+
+function receive(nTimeout)
+	local timer
+	if nTimeout then
+		timer = os.startTimer(nTimeout)
+	end
+	while true do
+		local sEvt, arg, msg, dist = os.pullEvent("net_message", "timer")
+		if sEvt == "net_message" then
+			return arg, msg, dist
+		elseif sEvt == "timer" and arg == timer then
+			return nil, nil, nil
+		end
+	end
+end
+
+function send(id, val)
+	CheckVarTypes(id, "nil", "table", "number")
+	if not bOpen then
+		return false, "Connection not started"
+	end
+	local msg = sMsgHeader..utils.serialize(val)
+	if id then
+		if type(id) == "number" then
+			SendStr(msg, id)
+		else
+			for _,i in pairs(id) do
+				SendStr(msg, i)
+			end
+		end
+	else
+		SendStr(msg)
+	end
+	return true
+end
+
+function sendFile(id, sFileName)
+	local file = fs.open(sFileName, "r")
+	if file:isOpen() then
+		local s = file:readAll()
+		file:close()
+		return send(id, s)
+	end
+	return false, "Error opening file "..sFileName
+end
+
+function broadcast(val)
+	return send(nil, val)
+end
+
+function httpRequest(sUrl, sPost)
+	if http then
+		return true, http.request(sUrl, sPost)
+	end
+	return false, "Http not enabled"
+end
+
+function httpGet(sUrl)
+	local ok, err = httpRequest(sUrl)
+	if not ok then
+		return false, err
+	end
+	while true do
+		local sEvt, url, arg = os.pullEvent("http_success", "http_failure")
+		if url == sUrl then
+			if sEvt == "http_success" then
+				return arg
+			elseif sEvt == "http_failure" then
+				return nil
+			end
+		end
+	end
+end
+
+function httpPost(sUrl, sPost)
+	local ok, err = httpRequest(sUrl, sPost or "")
+	if not ok then
+		return false, err
+	end
+	while true do
+		local sEvt, url, arg = os.pullEvent("http_success", "http_failure")
+		if url == sUrl then
+			if sEvt == "http_success" then
+				return arg
+			elseif sEvt == "http_failure" then
+				return nil
+			end
+		end
+	end
+end
+
+-- Set Event Handlers
+
+sys.addEventHandler("rednet_message", function(id, msg, dist)
+	if #msg >= #sMsgHeader and string.sub(msg, 1, #sMsgHeader) == sMsgHeader then
+		msg = utils.unserialize(string.sub(msg, #sMsgHeader + 1))
+	end
+	os.queueEvent("net_message", id, msg, dist)
+	return true
+end)
+
+sys.addEventHandler("peripheral_detach", function(side)
+	if side == sModemSide then
+		if bOpen then
+			bOpen = false
+			connect()
+		end
+		return true
+	end
+	return false
+end)

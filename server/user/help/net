@@ -1,0 +1,70 @@
+Functions in the Net Lib:
+- net.connect()
+	* starts the connection
+	* return values:
+		- boolean indicating if the connection where successful (boolean)
+		- string containing the error, if any (nil, string)
+- net.disconnect()
+	* closes the connection
+	* return values:
+		- boolean indicating if the connection where closed (boolean)
+		- string containing the error, if any (nil, string)
+- net.isConnected()
+	* checks if the connection is started
+	* return values:
+		- boolean indicating if the connection is started (boolean)
+- net.receive(timeout)
+	* waits for a message to be received
+	* return values:
+		- the sender id (number)
+		- the message (any serializable type)
+		- the distance to the sender (number)
+	* parameters:
+		- timeout: (number) [optional]
+- net.send(id, var)
+	* sends a message
+	* return values:
+		- boolean indicating if the message were sent (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- id: id of the receiver, nil to broadcast (number) [optional]
+		- var: the variable to send (any serializable type)
+- net.sendFile(id, fileName, bin)
+	* sends a file over the net
+	* return values:
+		- boolean indicating if the message were sent (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- id: id of the receiver, nil to broadcast (number) [optional]
+		- fileName: the name of the file to send (string)
+		- bin: indicates if it should treat the file as binary (boolean)
+- net.broadcast(var)
+	* broadcasts a message
+	* return values:
+		- boolean indicating if the message were sent (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- var: the variable to send (any serializable type)
+- net.httpRequest(url, post)
+	* make an http request
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the request id, or an error message if an error occurred (number, string)
+	* parameters:
+		- url: the url to make the request (string)
+		- post: the post to make (string) [optional]
+- net.httpGet(url)
+	* make an http get operation
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the response to the request, or an error message if an error occurred (string)
+	* parameters:
+		- url: the url to make the request (string)
+- net.httpPost(url, post)
+	* make an http post operation
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- the response to the request, or an error message if an error occurred (string)
+	* parameters:
+		- url: the url to make the request (string)
+		- post: the post to make (string) [optional]

@@ -1,0 +1,328 @@
+-- Keys Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+-- Numbers
+N1 = 2
+N2 = 3
+N3 = 4
+N4 = 5
+N5 = 6
+N6 = 7
+N7 = 8
+N8 = 9
+N9 = 10
+N0 = 11
+-- Letters
+A = 30
+B = 48
+C = 46
+D = 32
+E = 18
+F = 33
+G = 34
+H = 35
+I = 23
+J = 36
+K = 37
+L = 38
+M = 50
+N = 49
+O = 24
+P = 25
+Q = 16
+R = 19
+S = 31
+T = 20
+U = 22
+V = 47
+W = 17
+X = 45
+Y = 21
+Z = 44
+-- Symbols
+Minus = 12 -- -
+Equals = 13 -- =
+LeftBracket = 26 -- [
+RightBracket = 27 -- ]
+SemiColon = 39 -- ;
+Apostrophe = 40 -- '
+Grave = 41 -- `
+Backslash = 43 -- \
+Comma = 51 -- ,
+Period = 52 -- .
+Slash = 53 -- /
+Circumflex = 144 -- ^
+At = 145 -- @
+Colon = 146 -- :
+Underline = 147 -- _
+-- Special keys
+Escape = 1
+Backspace = 14
+Tab = 15
+Enter = 28
+LCtrl = 29
+RCtrl = 157
+LShift = 42
+RShift = 54
+LAlt = 56
+RAlt = 184
+Space = 57
+CapsLock = 58
+NumLock = 69
+ScrollLock = 70
+Home = 199
+End = 207
+PageUp = 201
+PageDown = 209
+Insert = 210
+Del = 211
+LMeta = 219
+RMeta = 220
+Menu = 221
+-- Function Keys
+F1 = 59
+F2 = 60
+F3 = 61
+F4 = 62
+F5 = 63
+F6 = 64
+F7 = 65
+F8 = 66
+F9 = 67
+F10 = 68
+F11 = 87
+F12 = 88
+F13 = 100
+F14 = 101
+F15 = 102
+-- Arrow Keys
+Up = 200
+Down = 208
+Left = 203
+Right = 205
+-- Numpad
+Pad1 = 79
+Pad2 = 80
+Pad3 = 81
+Pad4 = 75
+Pad5 = 76
+Pad6 = 77
+Pad7 = 71
+Pad8 = 72
+Pad9 = 73
+Pad0 = 82
+Multiply = 55
+Divide = 181
+Subtract = 74
+Add = 78
+Decimal = 83
+PadEquals = 141
+PadEnter = 156
+
+-- Key Names
+local tNames = {}
+
+tNames[N1] = "1"
+tNames[N2] = "2"
+tNames[N3] = "3"
+tNames[N4] = "4"
+tNames[N5] = "5"
+tNames[N6] = "6"
+tNames[N7] = "7"
+tNames[N8] = "8"
+tNames[N9] = "9"
+tNames[N0] = "0"
+
+tNames[A] = "A"
+tNames[B] = "B"
+tNames[C] = "C"
+tNames[D] = "D"
+tNames[E] = "E"
+tNames[F] = "F"
+tNames[G] = "G"
+tNames[H] = "H"
+tNames[I] = "I"
+tNames[J] = "J"
+tNames[K] = "K"
+tNames[L] = "L"
+tNames[M] = "M"
+tNames[N] = "N"
+tNames[O] = "O"
+tNames[P] = "P"
+tNames[Q] = "Q"
+tNames[R] = "R"
+tNames[S] = "S"
+tNames[T] = "T"
+tNames[U] = "U"
+tNames[V] = "V"
+tNames[W] = "W"
+tNames[X] = "X"
+tNames[Y] = "Y"
+tNames[Z] = "Z"
+
+tNames[Minus] = "-"
+tNames[Equals] = "="
+tNames[LeftBracket] = "["
+tNames[RightBracket] = "]"
+tNames[SemiColon] = ";"
+tNames[Apostrophe] = "'"
+tNames[Grave] = "`"
+tNames[Backslash] = "\\"
+tNames[Comma] = ","
+tNames[Period] = "."
+tNames[Slash] = "/"
+tNames[Circumflex] = "^"
+tNames[At] = "@"
+tNames[Colon] = ":"
+tNames[Underline] = "_"
+
+tNames[Escape] = "Escape"
+tNames[Backspace] = "Backspace"
+tNames[Tab] = "Tab"
+tNames[Enter] = "Enter"
+tNames[LCtrl] = "Left Control"
+tNames[RCtrl] = "Right Control"
+tNames[LShift] = "Left Shift"
+tNames[RShift] = "Right Shift"
+tNames[LAlt] = "Left Alt"
+tNames[RAlt] = "Right Alt"
+tNames[Space] = "Space"
+tNames[CapsLock] = "Caps Lock"
+tNames[NumLock] = "Num Lock"
+tNames[ScrollLock] = "Scroll Lock"
+tNames[Home] = "Home"
+tNames[End] = "End"
+tNames[PageUp] = "Page Up"
+tNames[PageDown] = "Page Down"
+tNames[Insert] = "Insert"
+tNames[Del] = "Delete"
+tNames[LMeta] = "Left Meta"
+tNames[RMeta] = "Right Meta"
+tNames[Menu] = "Menu"
+
+tNames[F1] = "F1"
+tNames[F2] = "F2"
+tNames[F3] = "F3"
+tNames[F4] = "F4"
+tNames[F5] = "F5"
+tNames[F6] = "F6"
+tNames[F7] = "F7"
+tNames[F8] = "F8"
+tNames[F9] = "F9"
+tNames[F10] = "F10"
+tNames[F11] = "F11"
+tNames[F12] = "F12"
+tNames[F13] = "F13"
+tNames[F14] = "F14"
+tNames[F15] = "F15"
+
+tNames[Up] = "Up"
+tNames[Down] = "Down"
+tNames[Left] = "Left"
+tNames[Right] = "Right"
+
+tNames[Pad1] = "1"
+tNames[Pad2] = "2"
+tNames[Pad3] = "3"
+tNames[Pad4] = "4"
+tNames[Pad5] = "5"
+tNames[Pad6] = "6"
+tNames[Pad7] = "7"
+tNames[Pad8] = "8"
+tNames[Pad9] = "9"
+tNames[Pad0] = "0"
+tNames[Multiply] = "*"
+tNames[Divide] = "/"
+tNames[Subtract] = "-"
+tNames[Add] = "+"
+tNames[Decimal] = "."
+tNames[PadEquals] = "="
+tNames[PadEnter] = "Enter"
+
+-- Symbols
+local tSymbols = { Minus, Equals, LeftBracket, RightBracket, SemiColon, Apostrophe, Grave, Backslash, Comma, Period, Slash, Circumflex, At,
+				Colon, Underline, Multiply, Divide, Subtract, Add, Decimal }
+
+-- Special Keys
+local tSpecial = { Escape, Backspace, Tab, Enter, LCtrl, RCtrl, LShift, RShift, LAlt, RAlt, Space, CapsLock, NumLock, ScrollLock, Home, End,
+				PageUp, PageDown, Insert, Del, LMeta, RMeta, Menu }
+
+-- API Functions
+
+function name(key)
+	return tNames[key]
+end
+
+function isLetter(key)
+	return (key >= 16 and key <= 25) or (key >= 30 and key <= 38) or (key >= 44 and key <= 50)
+end
+
+function isNumber(key)
+	return key >= 2 and key <= 11
+end
+
+function isSpace(key)
+	return key == Space or key == Tab or key == Enter
+end
+
+function isSymbol(key)
+	return table.contains(tSymbols, key)
+end
+
+function isSpecial(key)
+	return table.contains(tSpecial, key)
+end
+
+function isArrow(key)
+	return key == Up or key == Down or key == Left or key == Right
+end
+
+function isFunction(key)
+	return (key >= 59 and key <= 68) or key == 87 or key == 88 or (key >= 100 and key <= 102)
+end
+
+function isChar(key)
+	return isLetter(key) or isNumber(key) or isSpace(key) or isSymbol(key)
+end
+
+function fromName(name)
+	CheckVarType(name, "string")
+	for k, n in pairs(tNames) do
+		if string.lower(n) == string.lower(name) then
+			return k
+		end
+	end
+	return nil
+end
+
+function toChar(key)
+	if isLetter(key) or isNumber(key) or isSymbol then
+		return name(key)
+	elseif isSpace(key) then
+		if key == Space then
+			return " "
+		elseif key == Enter then
+			return "\n"
+		elseif key == Tab then
+			return "\t"
+		end
+	end
+	return nil
+end

@@ -1,0 +1,88 @@
+-- Colors Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+white = 1
+orange = 2
+magenta = 4
+lightBlue = 8
+yellow = 16
+lime = 32
+pink = 64
+gray = 128
+lightGray = 256
+cyan = 512
+purple = 1024
+blue = 2048
+brown = 4096
+green = 8192
+red = 16384
+black = 32768
+
+local tColors = {
+["white"] = white,
+["orange"] = orange,
+["magenta"] = magenta,
+["lightBlue"] = lightBlue,
+["yellow"] = yellow,
+["lime"] = lime,
+["pink"] = pink,
+["gray"] = gray,
+["lightGray"] = lightGray,
+["cyan"] = cyan,
+["purple"] = purple,
+["blue"] = blue,
+["brown"] = brown,
+["green"] = green,
+["red"] = red,
+["black"] = black
+}
+
+function combine(...)
+	return bit32.bor(...)
+end
+
+function subtract(colors, ...)
+	local r = colors
+	for _,c in ipairs({...}) do
+		r = bit32.band(r, bit32.bnot(c))
+	end
+	return r
+end
+
+function test(colors, color)
+	return bit32.band(colors, color) == color
+end
+
+function get(sColor)
+	return tColors[sColor]
+end
+
+function getName(nColor)
+	for name, c in pairs(tColors) do
+		if c == nColor then
+			return name
+		end
+	end
+	return nil
+end
+
+function list()
+	return table.copy(tColors)
+end

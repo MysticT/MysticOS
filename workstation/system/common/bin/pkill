@@ -1,0 +1,16 @@
+local tArgs = { ... }
+if #tArgs ~= 1 then
+	print("Usage: pkill <pid>")
+	return
+end
+
+local pid = tonumber(tArgs[1])
+if pid then
+	if os.killProcess(pid) then
+		print("Process ended.")
+	else
+		print("No such process id "..tArgs[1])
+	end
+else
+	print("Usage: pkill <pid>")
+end

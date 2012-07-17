@@ -1,0 +1,10 @@
+To learn the lua programming language, visit http://lua-users.org/wiki/TutorialDirectory.
+
+To experiment with lua in MysticOS, run the "lua" program and start typing code.
+To create programs, use "edit" to create files, then type their names in the shell to run them.
+
+To quickly shutdown a computer, hold Ctrl+S for 1 second.
+To quickly reboot a computer, hold Ctrl+R for 1 second.
+
+To learn about the programming libs availiable, type "libs" or "help libs".
+If you get stuck, visit the forums at http://www.computercraft.info/ for advice and tutorials.

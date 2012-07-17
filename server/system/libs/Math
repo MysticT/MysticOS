@@ -1,0 +1,212 @@
+-- Math Lib for MysticOS
+--[[
+Copyright © 2012 Esteban Hermida a.k.a MysticT
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-Visible credit is given to the original author.
+-The software is distributed in a non-profit way.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--]]
+
+-- Matrix
+
+Matrix = class.new("Matrix")
+
+function Matrix:initialize(rows, cols)
+	self.rows = rows
+	self.cols = cols or cols
+	self.mat = {}
+	for i = 1, self.rows do
+		self.mat[i] = {}
+		for j = 1, self.cols do
+			self.mat[i][j] = 0
+		end
+	end
+end
+
+function Matrix:get(row, col)
+	if row < 1 or row > self.rows or col < 1 or col > self.cols then
+		return nil
+	end
+	return self.mat[row][col]
+end
+
+function Matrix:set(row, col, val)
+	if val ~= nil and row >= 1 and row <= self.rows and col >= 1 and col <= self.cols then
+		self.mat[row][col] = val
+	end
+end
+
+function Matrix:multiply(m)
+	if self.cols ~= m.rows then
+		return nil
+	end
+	local r = Matrix(self.rows, m.cols)
+	for i = 1, self.rows do
+		for j = 1, m.cols do
+			local v = 0
+			for k = 1, self.cols do
+				v = v + (self.mat[i][k] * m.mat[k][j])
+			end
+			r:set(i, j, v)
+		end
+	end
+	return r
+end
+
+function Matrix:transpose()
+	local m = Matrix(self.rows, self.cols)
+	for i = 1, self.rows do
+		for j = 1, self.cols do
+			m:set(i, j, self.mat[i][j])
+		end
+	end
+	return m
+end
+
+Matrix.setmetamethod("__tostring", function(self)
+	return "Matrix("..tostring(self.rows)..", "..tostring(self.cols)..")"
+end)
+
+Matrix.setmetamethod("__eq", function(self, other)
+	if self.rows ~= other.rows or self.cols ~= other.cols then
+		return false
+	end
+	for i = 1, self.rows do
+		for j = 1, self.cols do
+			if self:get(i, j) ~= other:get(i, j) then
+				return false
+			end
+		end
+	end
+	return true
+end)
+
+Matrix.setmetamethod("__mul", function(self, v)
+	for i = 1, self.rows do
+		for j = 1, self.cols do
+			self.mat[i][j] = self.mat[i][j] * v
+		end
+	end
+end)
+
+-- Vector2D
+
+Vector2D = class.new("Vector2D")
+
+function Vector2D:initialize(x, y)
+	self.x = x or 0
+	self.y = y or 0
+end
+
+function Vector2D:set(x, y)
+	self.x = x
+	self.y = y
+end
+
+function Vector2D:lenght()
+	return math.sqrt(self.x * self.x + self.y * self.y)
+end
+
+function Vector2D:normalize()
+	local l = self:lenght()
+	self.x = self.x / l
+	self.y = self.y / l
+end
+
+Vector2D.setmetamethod("__tostring", function(self)
+	return "("..tostring(self.x)..", "..tostring(self.y)..")"
+end)
+
+Vector2D.setmetamethod("__eq", function(self, other)
+	return self.x == other.x and self.y == other.y
+end)
+
+Vector2D.setmetamethod("__unm", function(self)
+	return Vector2D(-self.x, -self.y)
+end)
+
+Vector2D.setmetamethod("__add", function(self, other)
+	return Vector2D(self.x + other.x, self.y + other.y)
+end)
+
+Vector2D.setmetamethod("__sub", function(self, other)
+	return Vector2D(self.x - other.x, self.y - other.y)
+end)
+
+Vector2D.setmetamethod("__mul", function(self, v)
+	return Vector2D(self.x * v, self.y * v)
+end)
+
+Vector2D.setmetamethod("__div", function(self, v)
+	return Vector2D(self.x / v, self.y / v)
+end)
+
+-- Vector3D
+
+Vector3D = class.new("Vector3D")
+
+function Vector3D:initialize(x, y, z)
+	self.x = x or 0
+	self.y = y or 0
+	self.z = z or 0
+end
+
+function Vector3D:set(x, y, z)
+	self.x = x
+	self.y = y
+	self.z = z
+end
+
+function Vector3D:lenght()
+	return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+end
+
+function Vector3D:normalize()
+	local l = self:lenght()
+	self.x = self.x / l
+	self.y = self.y / l
+	self.z = self.z / l
+end
+
+function Vector3D:cross_product(v)
+	return Vector3D(self.y * v.z - v.y * self.z, v.x * self.z - self.x * v.z, self.x * v.z - v.x * self.y)
+end
+
+Vector3D.setmetamethod("__tostring", function(self)
+	return "("..tostring(self.x)..", "..tostring(self.y)..", "..tostring(self.z)..")"
+end)
+
+Vector3D.setmetamethod("__eq", function(self, other)
+	return self.x == other.x and self.y == other.y and self.z == other.z
+end)
+
+Vector3D.setmetamethod("__unm", function(self)
+	return Vector3D(-self.x, -self.y, -self.z)
+end)
+
+Vector3D.setmetamethod("__add", function(self, other)
+	return Vector3D(self.x + other.x, self.y + other.y, self.z + other.z)
+end)
+
+Vector3D.setmetamethod("__sub", function(self, other)
+	return Vector3D(self.x - other.x, self.y - other.y, self.z - other.z)
+end)
+
+Vector3D.setmetamethod("__mul", function(self, v)
+	return Vector3D(self.x * v, self.y * v, self.z * v)
+end)
+
+Vector3D.setmetamethod("__div", function(self, v)
+	return Vector3D(self.x / v, self.y / v, self.z / v)
+end)

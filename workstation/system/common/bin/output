@@ -1,0 +1,23 @@
+local tArgs = { ... }
+
+local function printUsage()
+	print("Usage: output <computer/monitor/duplicate>")
+end
+
+if #tArgs ~= 1 then
+	printUsage()
+	return
+end
+
+local sMode = string.lower(tArgs[1])
+
+if sMode == "computer" then
+	screen.setOutputMode(screen.outputComputerOnly)
+elseif sMode == "monitor" then
+	screen.setOutputMode(screen.outputMonitorOnly)
+elseif sMode == "duplicate" then
+	screen.setOutputMode(screen.outputDuplicate)
+else
+	printUsage()
+	return
+end

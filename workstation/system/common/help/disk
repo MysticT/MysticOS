@@ -1,0 +1,54 @@
+Functions in the Disk Lib. These functions are for interacting with disk drives:
+- disk.isPresent(side)
+	* checks if a disk is on the drive
+	* return values:
+		- boolean indicating if there's a disk on the drive (boolean)
+	* parameters:
+		- side: the side of the drive to check (string)
+- disk.hasData(side)
+	* checks if the disk on the drive has data (is a floppy disk)
+	* return values:
+		- boolean indicating if the disk has data (boolean)
+	* parameters:
+		- side: the side of the drive to check (string)
+- disk.getMountPath(side)
+	* gets the mount path of the disk on the drive
+	* return values:
+		- the mount path (string)
+	* parameters:
+		- side: the side of the drive to check (string)
+- disk.setLabel(side, label)
+	* sets the label of the disk on the drive
+	* parameters:
+		- side: the side of the drive (string)
+		- label: the disk label (string)
+- disk.getLabel(side)
+	* gets the label of the disk on the drive
+	* return values:
+		- the disk's label (string)
+	* parameters:
+		- side: the side of the drive (string)
+- disk.hasAudio(side)
+	* checks if the disk on the drive has audio (is a music cd)
+	* return values:
+		- boolean indicating if the disk has audio (boolean)
+	* parameters:
+		- side: the side of the drive to check (string)
+- disk.getAudioTitle(side)
+	* gets the title of the audio cd on the drive
+	* return values:
+		- the title of audio cd (string)
+	* parameters:
+		- side: the side of the drive (string)
+- disk.playAudio(side)
+	* plays the music in the drive
+	* parameters:
+		- side: the side of the drive (string)
+- disk.stopAudio()
+	* stops the music in the drive
+	* parameters:
+		- side: the side of the drive (string)
+- disk.eject(side)
+	* ejects the disk on the drive
+	* parameters:
+		- side: the side of the drive (string)

@@ -1,0 +1,114 @@
+Functions in the Redstone Lib:
+- rs.getSides()
+	* returns a table containing the side names
+	* return values:
+		- the table of valid side names (table)
+- rs.setOutput(side, b)
+	* sets the redstone output
+	* parameters:
+		- side: the side (or table of sides) to change it's output (string, table)
+		- b: true to activate output, false to deactivate (boolean, table)
+- rs.setOutput(b)
+	* sets the redstone output for all sides
+	* parameters:
+		- b: true to activate output, false to deactivate (boolean)
+- rs.getInput(side)
+	* gets the redstone input from a side
+	* return values:
+		- the state of the input (boolean, table)
+	* parameters:
+		- side: the side (or table of sides) to get the input (string, table)
+- rs.getInput()
+	* gets the redstone input from all sides
+	* return values:
+		- a table containing the input states (table)
+- rs.getBundledInput(side)
+	* gets the bundled cables input state on the given side
+	* return values:
+		- the state of the input (boolean, table)
+	* parameters:
+		- side: the side (or table of sides) to get the input (string, table)
+- rs.getBundledInput()
+	* gets the bundled cables input from all sides
+	* return values:
+		- a table containing the input state (table)
+- rs.testBundledInput(side, color)
+	* test the bundled input for a color
+	* return values:
+		- boolean indicating if the color is present in the input (boolean)
+	* parameters:
+		- side: the side (or sides) to check (string, table)
+		- colors: the color (or table of colors) to test (number, table)
+- rs.testBundledInput(color)
+	* test the bundled input from all sides for a color
+	* return values:
+		- boolean indicating if the color is present on all inputs (boolean)
+	* parameters:
+		- color: the color to test (number, table)
+- rs.setBundledOutput(side, colors)
+	* sets the bundled output
+	* parameters:
+		- side: the side (or table of sides) to set (string, table)
+		- colors: the colors (or table of colors) to set as output (number, table)
+- rs.setBundledOutput(colors)
+	* sets the bundled output for all sides
+	* parameters:
+		- colors: the colors to set as output (number)
+- rs.getBundledOutput(side)
+	* gets the bundled output
+	* return values:
+		- the output colors (number, table)
+	* parameters:
+		- side: the side (or table of sides) to get (string, table) [optional]
+- rs.addBundledOutput(side, colors)
+	* adds colors to the bundled output
+	* parameters:
+		- side: the side (or table of sides) to add the output (string, table)
+		- colors: the colors (or table of colors) to add (number, table)
+- rs.addBundledOutput(colors)
+	* adds colors to the bundled output of all sides
+	* parameters:
+		- colors: the colors to add (number)
+- rs.removeBundledOutput(side, color)
+	* removes colors from the bundled output
+	* parameters:
+		- side: the side (or table of sides) to remove the output (string, table)
+		- colors: the colors (or table of colors) to remove (number, table)
+- rs.removeBundledOutput(colors)
+	* removes colors from the bundled output of all sides
+	* parameters:
+		- colors: the colors to remove (number)
+- rs.pulse(side, time)
+	* sends a pulse of redstone on a side
+	* parameters:
+		- side: the side (or table of sides) to send the pulse (string, table)
+		- time: the duration of the pulse (number)
+- rs.pulse(time)
+	* sends a pulse of redstone on all sides
+	* parameters:
+		- time: the duration of the pulse (number)
+- rs.bundledPulse(side, colors, time)
+	* sends a pulse of redstone on a side with the given colors
+	* parameters:
+		- side: the side (or table of sides) to send the pulse (string, table)
+		- colors: the colors to set on the pulse (number)
+		- time: the duration of the pulse (number)
+- rs.bundledPulse(colors, time)
+	* sends a pulse of redstone on all sides with the given colors
+	* parameters:
+		- colors: the colors to set on the pulse (number)
+		- time: the duration of the pulse (number)
+- rs.saveState(path)
+	* saves the current redstone state to a file
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- path: the path to the file to save (string)
+- rs.loadState(path)
+	* loads the redstone state from a file
+	* return values:
+		- boolean indicating if the operation was successful (boolean)
+		- string containing the error message, if any (string, nil)
+	* parameters:
+		- path: the path to the file to load (string)
