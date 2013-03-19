@@ -1,0 +1,41 @@
+-- MysticOS Terminal Library
+
+local native = term
+local term = {}
+local targets = {}
+
+local function getTarget()
+	return #targets > 0 and targets[#targets] or display
+end
+
+for k, v in pairs(native) do
+	if type(k) == "string" and type(v) == "function" then
+		term[k] = function(...)
+			local target = getTarget()
+			if target and target[k] then
+				return target[k](...)
+			end
+		end
+	end
+end
+
+function term.redirect(target)
+	assert(type(target) == "table", "redirect: table expected, got "..type(target))
+	targets[#targets + 1] = target
+end
+
+function term.restore()
+	targets[#targets] = nil
+end
+
+function term.redirectScreen(target)
+	screen.redirect(target)
+	display.updateDisplays()
+end
+
+function term.restoreScreen()
+	screen.restore()
+	display.updateDisplays()
+end
+
+return term

@@ -1,0 +1,226 @@
+-- MysticOS kernel
+
+--[[
+TODO:
+	* error handling
+	+ api protection?
+	+ turtle support
+--]]
+
+__VERSION = "MysticCore 0.2"
+
+local sLibsPath = "MysticOS/corelibs"
+local sStartupPath = "MysticOS/startup"
+
+-- Load functions
+
+function loadfile(sPath, tEnv)
+	local file = fs.open(sPath, "r")
+	if file then
+		local func, err = loadstring(file.readAll(), fs.getName(sPath))
+		file.close()
+		if func and tEnv then
+			setfenv(func, tEnv)
+		end
+		return func, err
+	end
+	return nil, "File "..sPath.." not found."
+end
+
+function dofile(sFileName, tEnv)
+	local fnFile, err = loadfile(sPath, tEnv or getfenv(2)) -- TODO
+	if fnFile then
+		return fnFile()
+	end
+	error(err, 2)
+end
+
+-- table functions
+
+function table.contains(t, val)
+	for _,v in pairs(t) do
+		if v == val then
+			return true
+		end
+	end
+	return false
+end
+
+function table.contains_key(t, key)
+	return t[key] ~= nil
+end
+
+function table.clear(t)
+	local k = next(t)
+	while k do
+		t[k] = nil
+		k = next(t)
+	end
+end
+
+function table.copy(src, dst)
+	dst = dst or {}
+	for k, v in pairs(src) do
+		dst[k] = v
+	end
+	return dst
+end
+
+function table.deep_copy(t)
+	local lookup = {}
+	local function copy(obj)
+		if type(obj) ~= "table" then
+			return obj
+		elseif lookup[obj] ~= nil then
+			return lookup[obj]
+		end
+		local tbl = {}
+		lookup[obj] = tbl
+		for k, v in pairs(obj) do
+			tbl[copy(k)] = copy(v)
+		end
+		return setmetatable(tbl, getmetatable(obj))
+	end
+	return copy(t)
+end
+
+function table.keys(t)
+	local tKeys = {}
+	for k in pairs(t) do
+		tKeys[#tKeys + 1] = k
+	end
+	return tKeys
+end
+
+function table.values(t)
+	local tValues = {}
+	for _,v in pairs(t) do
+		tValues[#tValues + 1] = v
+	end
+	return tValues
+end
+
+function table.size(t)
+	local i = 0
+	for _ in pairs(t) do
+		i = i + 1
+	end
+	return i
+end
+
+function table.empty(t)
+	return next(t) == nil
+end
+
+function table.append(dst, src)
+	for i = 1, #src do
+		dst[#dst + 1] = src[i]
+	end
+end
+
+-- string functions
+
+-- workaround for a bug in LuaJ
+local s_sub = string.sub
+function string.sub(s, i, j)
+	return s_sub(s, i, j)..""
+end
+
+function string.replace(str, i, j, s)
+	return string.sub(str, 1, i - 1)..s..string.sub(str, j + 1)
+end
+
+function string.insert(str, i, s)
+	return string.sub(str, 1, i)..s..string.sub(str, i + 1)
+end
+
+function string.set(s, i, c)
+	return string.sub(s, 1, i - 1)..string.sub(c, 1, 1)..string.sub(s, i + 1)
+end
+
+function string.at(s, i)
+	return string.sub(s, i, i)
+end
+
+-- Math functions
+
+function math.logN(n, base)
+	return math.log(n) / math.log(base)
+end
+
+-- Misc. functions
+
+function getmetatable(t)
+	if native.type(t) == "string" then
+		native.error("Attempt to access string metatable", 2)
+		return nil
+	end
+	return native.getmetatable(t)
+end
+
+-- TODO: getfenv, setfenv
+
+-- Environment
+
+local kernelEnv = {}
+
+for k, v in pairs(getfenv()) do
+	kernelEnv[k] = v
+end
+
+-- Load corelibs
+
+local function loadLib(path)
+	local tEnv = {}
+	setmetatable(tEnv, { __index = kernelEnv })
+	local fnLib, err = loadfile(path, tEnv)
+	if not fnLib then
+		return false, err
+	end
+	local ok, lib = pcall(fnLib)
+	if not ok then
+		return false, lib
+	end
+	if not lib then
+		lib = {}
+		for k, v in pairs(tEnv) do
+			lib[k] = v
+		end
+	end
+	kernelEnv[fs.getName(path)] = lib
+	return true
+end
+
+local function loadCoreLibs(sPath)
+	local libsList = fs.list(sPath)
+	table.sort(libsList)
+	for i = 1, #libsList do
+		local path = fs.combine(sPath, libsList[i])
+		if fs.isDir(path) then
+			loadCoreLibs(path)
+		else
+			local ok, err = loadLib(path)
+-- DEBUG --
+if not ok then
+	emulog.log(err) -- DEBUG
+end
+-- DEBUG --
+		end
+	end
+end
+
+emulog.clear() -- DEBUG
+
+loadCoreLibs(sLibsPath)
+
+-- Startup
+
+local func, err = loadfile(sStartupPath, kernelEnv)
+if func then
+	local ok, err = pcall(func)
+	if not ok then
+		error(err, 0) -- TODO
+	end
+else
+	error(err, 0) -- TODO
+end

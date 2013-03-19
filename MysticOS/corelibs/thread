@@ -1,0 +1,21 @@
+-- MysticOS Thread Library
+
+function new(func)
+	return proc.createThread(func)
+end
+
+function kill(tid)
+	return proc.killThread(tid)
+end
+
+function list()
+	return proc.listThreads()
+end
+
+function count(pid)
+	return proc.threadCount()
+end
+
+function running()
+	return proc.runningThread()
+end

@@ -1,0 +1,67 @@
+-- MysticOS Bit32 Library
+
+function bnot(i)
+	return bit.bnot(i)
+end
+
+function band(...)
+	local n = 0
+	for _,i in ipairs({...}) do
+		n = bit.band(n, i)
+	end
+	return n
+end
+
+function bor(...)
+	local n = 0
+	for _,i in ipairs({...}) do
+		n = bit.bor(n, i)
+	end
+	return n
+end
+
+function bxor(...)
+	local n = 0
+	for _,i in ipairs({...}) do
+		n = bit.bxor(n, i)
+	end
+	return n
+end
+
+function lshift(i, n)
+	return bit.blshift(i, n)
+end
+
+function rshift(i, n)
+	return bit.brshift(i, n)
+end
+
+function logic_rshift(i, n)
+	return bit.blogic_rshift(i, n)
+end
+
+function lrotate(i, n)
+	n = n % 32
+	return bor(lshift(band(i, rshift(MAX, n)), n), rshift(i, 32 - n))
+end
+
+function rrotate(i, n)
+	n = n % 32
+	return bor(rshift(band(i, lshift(MAX, n)), n), lshift(i, 32 - n))
+end
+
+function btest(...)
+	return band(...) ~= 0
+end
+
+function testbit(i, n)
+	return bit.band(i , bit.blshift(2, n))
+end
+
+function setbit(i, n)
+	return bit.bor(i, bit.blshift(2, n))
+end
+
+function clearbit(i, n)
+	return bit.band(i, bit.bnot(bit.blshift(2, n)))
+end

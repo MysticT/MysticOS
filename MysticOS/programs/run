@@ -1,0 +1,13 @@
+local tArgs = { ... }
+if #tArgs < 1 then
+	print("Usage: run <program> ...")
+	return
+end
+
+local sPath = shell.resolveProgram(tArgs[1])
+if not sPath then
+	printError("No such program "..tArgs[1])
+	return
+end
+
+os.run(sPath, unpack(tArgs, 2))

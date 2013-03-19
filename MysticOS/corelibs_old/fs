@@ -1,0 +1,369 @@
+-- MysticOS File System
+
+--[[
+TODO:
+	+ get/set permissions
+	+ delete bit
+	+ directory properties/permissions (?)
+	* open files without permissions (add header?)
+--]]
+
+local native = fs
+local tOpenFiles = {}
+
+local read_bit = 0x01
+local write_bit = 0x02
+
+local newline_byte = string.byte("\n")
+
+local function resolvePath(path)
+	return native.combine(path, "")
+end
+
+local function readString(handle)
+	local str = ""
+	local b = handle.read()
+	while b and b ~= 0 do
+		str = str..string.char(b)
+		b = handle.read()
+	end
+	return str
+end
+
+local function writeString(handle, str)
+	for i = 1, #str do
+		handle.write(string.byte(str, i))
+	end
+	handle.write(0)
+end
+
+local function hasReadBit(b)
+	return bit.band(b, read_bit) == read_bit
+end
+
+local function hasWriteBit(b)
+	return bit.band(b, write_bit) == write_bit
+end
+
+local function canUserRead(hdr)
+	if user.current() == hdr.owner or user.isAdmin() then
+		return true
+	elseif user.group() == hdr.group then
+		return hasReadBit(hdr.group_access)
+	else
+		return hasReadBit(hdr.others_access)
+	end
+end
+
+local function canUserWrite(hdr)
+	if user.current() == hdr.owner then
+		return true
+	elseif user.group() == hdr.group then
+		return hasWriteBit(hdr.group_access)
+	else
+		return hasWriteBit(hdr.others_access)
+	end
+end
+
+local function readHeader(path)
+	local hdr = {}
+	local handle = native.open(path, "rb")
+	if handle then
+		-- Check for Header
+		local s = ""
+		for i = 1, #sFileHdr do
+			s = s..string.char(handle.read())
+		end
+		if s == sFileHdr then
+			-- Owner
+			hdr.owner = readString(handle)
+			-- Group
+			hdr.group = readString(handle)
+			-- Group Access
+			hdr.group_access = handle.read()
+			-- Others Access
+			hdr.others_access = handle.read()
+		else
+			-- Owner
+			hdr.owner = "System"
+			-- Group
+			hdr.group = "System"
+			-- Group Access
+			hdr.group_access = bit.band(read_bit, write_bit)
+			-- Others Access
+			hdr.others_access = read_bit
+		end
+		handle.close()
+		return hdr
+	end
+end
+
+local function writeHeader(handle, hdr, mode)
+	if mode == "w" then
+		-- Owner
+		handle.write(hdr.owner)
+		handle.write(string.char(0))
+		-- Group
+		handle.write(hdr.group)
+		-- Group Access, Others Access
+		handle.write(string.char(0, hdr.group_access, hdr.others_access, newline_byte))
+	elseif mode == "wb" then
+		-- Owner
+		writeString(hdr.owner)
+		-- Group
+		writeString(hdr.group)
+		-- Group Access
+		handle.write(hdr.group_access)
+		-- Others Access
+		handle.write(hdr.others_access)
+		-- Header end
+		handle.write(newline_byte)
+	end
+end
+
+local function skipHeader(handle, mode)
+	if mode == "r" then
+		handle.readLine()
+	elseif mode == "rb" then
+		readString(handle)
+		readString(handle)
+		handle.read()
+		handle.read()
+		handle.read()
+	end
+end
+
+local function openFile(path, mode)
+	if native.exists(path) then
+		local hdr = readHeader(path)
+		if mode == "r" or mode == "rb" then
+			if not canUserRead(hdr) then
+				return nil
+			end
+		elseif mode == "a" or mode == "ab" then
+			if not canUserWrite(hdr) then
+				return nil
+			end
+		end
+		local handle = native.open(path, mode)
+		if mode == "r" or mode == "rb" then
+			skipHeader(handle, mode)
+		end
+		return handle, hdr
+	end
+end
+
+local function createFile(path, mode)
+	local hdr
+	if native.exists(path) then
+		hdr = readHeader(path)
+		if not canUserWrite(hdr) then
+			return nil
+		end
+	end
+	local handle = native.open(path, mode)
+	if not hdr then
+		hdr = {}
+		hdr.owner = user.current()
+		hdr.group = user.group()
+		hdr.group_access = bit.band(read_bit, write_bit)
+		hdr.others_access = read_bit
+	end
+	writeHeader(handle, hdr, mode)
+	return handle, hdr
+end
+
+-- Lib functions
+
+function list(path)
+	return native.list(path)
+end
+
+function exists(path)
+	return native.exists(path)
+end
+
+function isDir(path)
+	return native.isDir(path)
+end
+
+function canRead(path)
+	path = resolvePath(path)
+	local hdr
+	if isOpen(path) then
+		hdr = tOpenFiles[path].header
+	elseif native.exists(path) then
+		hdr = readHeader(path)
+	end
+	if hdr then
+		return canUserRead(hdr)
+	end
+	return false
+end
+
+function canWrite(path)
+	path = resolvePath(path)
+	local hdr
+	if native.isReadOnly(path) then
+		return false
+	elseif isOpen(path) then
+		hdr = tOpenFiles[path].header
+	elseif native.exists(path) then
+		hdr = readHeader(path)
+	end
+	if hdr then
+		return canUserWrite(hdr)
+	end
+	return true
+end
+
+function isReadOnly(path)
+	return not canRead(path)
+end
+
+function isWriteOnly(path)
+	return not canWrite(path)
+end
+
+function getName(path)
+	return native.getName(path)
+end
+
+function getDrive(path)
+	return native.getDrive(path)
+end
+
+function getSize(path)
+	-- TODO: content size, size on disk
+	return native.getSize(path)
+end
+
+function makeDir(path)
+	return native.makeDir(path)
+end
+
+function move(srcPath, dstPath)
+	-- TODO: check error, check owners
+	return native.move(path)
+end
+
+function copy(srcPath, dstPath)
+	-- TODO: check error, check owners
+	return native.copy(path)
+end
+
+function delete(path)
+	-- TODO: check error, check owner
+	return native.delete(path)
+end
+
+function combine(basePath, localPath)
+	return native.combine(basePath, localPath)
+end
+
+function isOpen(path)
+	return tOpenFiles[resolvePath(path)] ~= nil
+end
+
+function open(path, mode)
+	path = resolvePath(path)
+	local handle, hdr
+	if mode == "r" or mode == "rb" then
+		handle, hdr = openFile(path, mode)
+	elseif mode == "a" or mode == "ab" then
+		if native.exists(path) then
+			handle, hdr = openFile(path, mode)
+		else
+			handle, hdr = createFile(path, mode)
+		end
+	elseif mode == "w" or mode == "wb" then
+		handle, hdr = createFile(path, mode)
+	else
+		error("Invalid mode")
+	end
+	if handle then
+		local pid = proc.running()
+		tOpenFiles[path] = { ["pid"] = pid, ["header"] = hdr, ["handle"] = handle }
+		proc.openHandle(pid, handle)
+		local close = handle.close
+		handle.close = function()
+			close()
+			proc.closeHandle(pid, handle)
+		end
+	end
+	return handle
+end
+
+--[[
+function readAll(handle)
+	local t = {}
+	local b = handle.read()
+	while b do
+		table.insert(t, b)
+		b = handle.read()
+	end
+	return t
+end
+
+function readShortLE(handle)
+	return handle.read() + handle.read() * 256
+end
+
+function readShortBE(handle)
+	return handle.read() * 256 + handle.read()
+end
+
+function readIntLE(handle)
+	return handle.read() + handle.read() * 256 + handle.read() * 65536 + handle.read() * 16777216
+end
+
+function readIntBE(handle)
+	return handle.read() * 16777216 + handle.read() * 65536 + handle.read() * 256 + handle.read()
+end
+
+function readString(handle)
+	return readString(handle)
+end
+
+function writeBytes(handle, bytes)
+	for _,b in ipairs(bytes) do
+		handle.write(b)
+	end
+end
+
+function writeShortLE(handle, n)
+	local r = n % 256
+	handle.write((l - r) / 256)
+	handle.write(r)
+end
+
+function writeShortBE(handle, n)
+	local r = n % 256
+	handle.write(r)
+	handle.write((l - r) / 256)
+end
+
+function writeIntLE(handle, n)
+	local t = {}
+	for i = 1, 4 do
+		local r = n % 256
+		t[i] = r
+		n = (n - r) / 256
+	end
+	for i = 4, 1, -1 do
+		handle.write(t[i])
+	end
+end
+
+function writeIntBE(handle, n)
+	for i = 1, 4 do
+		local r = n % 256
+		handle.write(r)
+		n = (n - r) / 256
+	end
+end
+
+function writeString(handle, str)
+	writeString(handle, str)
+end
+--]]

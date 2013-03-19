@@ -1,0 +1,9 @@
+local colours = table.copy(colors)
+
+colours.gray = nil
+colours.grey = colors.gray
+
+colours.lightGray = nil
+colours.lightGrey = colors.lightGray
+
+return colours

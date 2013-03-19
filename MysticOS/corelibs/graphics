@@ -1,0 +1,86 @@
+-- MysticOS Graphics Library
+
+function draw(img, ox, oy, x, y, w, h)
+	display.draw(img, ox, oy, x, y, w, h)
+end
+
+function write(txt, x, y)
+	display.write(txt, x, y)
+end
+
+function read(len, x, y)
+	display.read(len, x, y)
+end
+
+function clear(c)
+	display.clear(c)
+end
+
+function clearLine(y)
+	display.clearLine(y)
+end
+
+function getCursorPos()
+	return display.getCursorPos()
+end
+
+function setCursorPos(x, y)
+	display.setCursorPos(x, y)
+end
+
+function setCursorBlink(b)
+	display.setCursorPos(b)
+end
+
+function getSize()
+	return display.getSize()
+end
+
+function getWidth()
+	return display.getWidth()
+end
+
+function getHeight()
+	return display.getHeight()
+end
+
+function scroll(n)
+	display.scroll(n)
+end
+
+function setTextColor(c, x, y)
+	display.setTextColor(c, x, y)
+end
+setTextColour = setTextColor
+
+function getTextColor(x, y)
+	return display.getTextColor(x, y)
+end
+getTextColour = getTextColor
+
+function setBackgroundColor(c, x, y)
+	display.setBackgroundColor(c, x, y)
+end
+setBackgroundColour = setBackgroundColor
+
+function getBackgroundColor(x, y)
+	return display.getBackgroundColor(x, y)
+end
+getBackgroundColour = getBackgroundColor
+
+function isColor()
+	return display.isColor()
+end
+isColour = isColor
+
+function setChar(c, x, y)
+	display.setChar(c, x, y)
+end
+
+function getChar(x, y)
+	return display.getChar(x, y)
+end
+
+function drawChar(c, x, y)
+	display.drawChar(c, x, y)
+end

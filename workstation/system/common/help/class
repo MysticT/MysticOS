@@ -1,8 +1,0 @@
-Functions in the Class Lib:
-- class.new(name, base)
-	* creates a new class named "name", with "base" as it's base class
-	* return values:
-		- the new class (class)
-	* parameters:
-		- name: the class name (string)
-		- base: the base class (class)

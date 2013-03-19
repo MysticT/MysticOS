@@ -1,0 +1,195 @@
+-- MysticOS Screen Lib
+
+local screen = {}
+
+local tScreens = {}
+local lastId = 0
+local nCurrent = 0
+local nRedrawDelay = 0.05
+
+local function redraw()
+	for _,scrn in pairs(tScreens) do
+		scrn.buff.img:render(scrn.target)
+	end
+end
+
+local function getCurrentBuffer()
+	return tScreens[nCurrent].buff
+end
+
+-- Lib functions
+
+function screen.getCurrent()
+	return nCurrent
+end
+
+function screen.setCurrent(id)
+	if tScreens[id] then
+		nCurrent = id
+	end
+end
+
+function screen.clear()
+	local buff = getCurrentBuffer()
+	buff.img:clear()
+end
+
+function screen.clearLine(y)
+	local buff = getCurrentBuffer()
+	buff.img:clearLine(y)
+end
+
+function screen.setChar(x, y, c)
+	local buff = getCurrentBuffer()
+	buff.img:setChar(x, y, c)
+end
+
+function screen.getChar(x, y)
+	local buff = getCurrentBuffer()
+	return buff.img:getChar(x, y)
+end
+
+function screen.drawChar(x, y, c)
+	local buff = getCurrentBuffer()
+	buff.img:drawChar(x, y, c)
+end
+
+function screen.setBackgroundColor(c, x, y)
+	local buff = getCurrentBuffer()
+	buff.img:setBackgroundColor(c, x, y)
+end
+
+function screen.getBackgroundColor(x, y)
+	local buff = getCurrentBuffer()
+	return buff.img:getBackgroundColor(x, y)
+end
+
+function screen.setTextColor(c, x, y)
+	local buff = getCurrentBuffer()
+	buff.img:setTextColor(c, x, y)
+end
+
+function screen.getTextColor(x, y)
+	local buff = getCurrentBuffer()
+	return buff.img:getTextColor(x, y)
+end
+
+function screen.write(s, x, y)
+	local buff = getCurrentBuffer()
+	local w = buff.img:write(x or buff.cursorX, y or buff.cursorY, s)
+	buff.cursorX = buff.cursorX + w
+end
+
+function screen.read(len, x, y)
+	local buff = getCurrentBuffer()
+	return buff.img:read(x or buff.cursorX, y or buff.cursorY, len)
+end
+
+function screen.getSize()
+	local buff = getCurrentBuffer()
+	return buff.img:getSize()
+end
+
+function screen.getWidth()
+	local buff = getCurrentBuffer()
+	return buff.img:getWidth()
+end
+
+function screen.getHeight()
+	local buff = getCurrentBuffer()
+	return buff.img:getHeight()
+end
+
+function screen.getCursorPos()
+	local buff = getCurrentBuffer()
+	return buff.cursorX, buff.cursorY
+end
+
+function screen.setCursorPos(x, y)
+	local buff = getCurrentBuffer()
+	buff.cursorX = x or buff.cursorX
+	buff.cursorY = y or buff.cursorY
+end
+
+function screen.setCursorBlink(b)
+	local buff = getCurrentBuffer()
+	buff.cursorBlink = b
+end
+
+function screen.scroll(n)
+	local buff = getCurrentBuffer()
+	buff.img:scroll(n)
+end
+
+function screen.draw(src, x, y, w, h)
+	local buff = getCurrentBuffer()
+	buff.img:draw(src, x, y, w, h)
+end
+
+function screen.addTarget(target)
+	local scrn = {
+		buff = {
+			img = drawable.new(target.getSize()),
+			cursorX = 1,
+			cursorY = 1,
+			cursorBlink = false
+		},
+		target = target
+	}
+	lastId = lastId + 1
+	tScreens[lastId] = scrn
+	return lastId
+end
+
+function screen.removeScreen(id)
+	tScreens[id] = nil
+end
+
+local tMonitors = {}
+
+function screen.addMonitor(sSide)
+	if not tMonitors[sSide] and peripheral.isA(sSide, "monitor") then
+		tMonitors[sSide] = screen.addTarget(peripheral.wrap(sSide))
+	end
+end
+
+function screen.removeMonitor(sSide)
+	if tMonitors[sSide] then
+		screen.removeTarget(tMonitors[sSide])
+		tMonitors[sSide] = nil
+	end
+end
+
+function screen.getMonitors()
+	return table.keys(tMonitors)
+end
+
+function screen.setRedrawDelay(delay)
+	nRedrawDelay = delay
+end
+
+-- Initialization
+
+local bInitialized = false
+local redrawTimer
+
+local function handleTimer(t)
+	if t == redrawTimer then
+		redraw()
+		redrawTimer = os.startTimer(nRedrawDelay)
+		return true
+	end
+	return false
+end
+
+function screen.init()
+	if not bInitialized then
+		-- Set event handler
+		system.addEventHandler("timer", handleTimer)
+		-- Start redraw timer
+		redrawTimer = os.startTimer(nRedrawDelay)
+		bInitialized = true
+	end
+end
+
+return screen

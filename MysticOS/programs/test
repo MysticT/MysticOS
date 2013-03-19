@@ -1,0 +1,44 @@
+local bExit = false
+
+local function exit()
+	bExit = true
+end
+
+local screenW, screenH = graphics.getSize()
+local view
+local exitButtton
+local sliderBar
+
+local function init()
+	-- View
+	view = gui.view(1, 1, 1, screenW, screenH)
+	-- Exit Button
+	exitButtton = gui.button(screenW, 1, 1, 1, 1, "X", exit)
+	exitButtton:setBackgroundColor(colors.red)
+	view:addChild(exitButtton)
+	-- Slider Bar
+	sliderBar = gui.sliderBar(1, screenH, 1, screenW, 1)
+	sliderBar:setBackgroundColor(colors.green)
+	sliderBar:setFillColor(colors.lime)
+	sliderBar:setActive(true)
+	view:addChild(sliderBar)
+end
+
+local function main()
+	while not bExit do
+		view:draw()
+		view:render()
+		view:handleEvent(os.pullEvent())
+	end
+end
+
+local ok, err = pcall(init)
+if not ok then
+	emulog.log(err)
+	return
+end
+ok, err = pcall(main)
+if not ok then
+	emulog.log(err)
+	return
+end

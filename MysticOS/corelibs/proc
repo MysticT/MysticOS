@@ -1,0 +1,444 @@
+-- MysticOS Processes Library
+
+local tReadyQueue = {}
+local tRunningQueue = {}
+local tBlockedQueue = {}
+local tKillList = {}
+local tStopList = {}
+local nPID = 0
+local nRunningProcess
+local nRunningThread
+local bRunning = false
+
+local tHandlers = {}
+
+local function handleEvent(evt, ...)
+	if tHandlers[evt] then
+		tHandlers[evt](...)
+	end
+end
+
+local function checkFilter(sEvt, tFilter)
+	if sEvt == nil or tFilter == nil or #tFilter == 0 then
+		return true
+	end
+	for i = 1, #tFilter do
+		if tFilter[i] == sEvt then
+			return true
+		end
+	end
+	return false
+end
+
+-- Thread
+
+local Thread = {}
+
+function Thread:getID()
+	return self.id
+end
+
+function Thread:status()
+	return coroutine.status(self.routine)
+end
+
+function Thread:isRunning()
+	return self.running
+end
+
+function Thread:kill()
+	self.running = false
+	handleEvent("thread_kill", self.id) -- TODO: pass process id
+end
+
+function Thread:stop()
+	self.running = false
+end
+
+function Thread:resume()
+	self.running = true
+end
+
+function Thread:run(sEvt, ...)
+	if self:isRunning() then
+		nRunningThread = self.id
+		return coroutine.resume(self.routine, sEvt, ...)
+	end
+end
+
+local function newThread(id, func)
+	local co = coroutine.create(func)
+	if co then
+		local thread = {}
+		thread.id = id
+		thread.routine = co
+		thread.running = true
+		return setmetatable(thread, { __index = Thread })
+	end
+end
+
+-- Process
+
+local Proc = {}
+
+function Proc:getID()
+	return self.id
+end
+
+function Proc:getName()
+	return self.name
+end
+
+function Proc:isRunning()
+	return self.running
+end
+
+function Proc:kill()
+	self.running = false
+	handleEvent("process_kill", self.id)
+end
+
+function Proc:stop()
+	self.running = false
+end
+
+function Proc:resume()
+	self.running = true
+end
+
+function Proc:run(sEvt, ...)
+	if self:isRunning() then
+		nRunningProcess = self.id
+		for id, thread in pairs(self.runningThreads) do
+			if checkFilter(sEvt, self.filters[id]) then
+				local tStatus = { thread:run(sEvt, ...) }
+				if tStatus[1] then
+					self.filters[id] = { unpack(tStatus, 2) }
+				else
+					handleEvent("error", self.id, id, tStatus[2])
+					-- TODO: kill process?
+				end
+				if thread:status() == "dead" then
+					handleEvent("thread_end", self.id, id)
+					self.killList[id] = true
+				end
+			end
+		end
+	end
+end
+
+function Proc:createThread(func)
+	setfenv(func, self.env)
+	local thread = newThread(self.tid, func)
+	if thread then
+		local id = self.tid
+		self.tid = self.tid + 1
+		self.readyThreads[id] = thread
+		return true, id
+	end
+	return false, "Error creating new coroutine"
+end
+
+function Proc:stopThread(id)
+	if self.runningThreads[id] then
+		self.runningThreads[id]:stop()
+		self.stopList[id] = true
+		return true
+	elseif self.readyThreads[id] then
+		self.readyThreads[i]:stop()
+		self.blockedThreads[id] = self.readyThreads[id]
+		self.readyThreads[id] = nil
+		return true
+	end
+	return false
+end
+
+function Proc:resumeThread(id)
+	if self.blockedThreads[id] then
+		self.blockedThreads[id]:resume()
+		self.readyThreads[id] = self.blockedThreads[id]
+		self.blockedThreads[id] = nil
+		return true
+	end
+	return false
+end
+
+function Proc:killThread(id)
+	if self.runningThreads[id] then
+		self.runningThreads[id]:kill()
+		self.killList[id] = true
+		return true
+	elseif self.blockedThreads[id] then
+		self.blockedThreads[id]:kill()
+		self.blockedThreads[id] = nil
+		self.filters[id] = nil
+		return true
+	elseif self.readyThreads[id] then
+		self.readyThreads[id]:kill()
+		self.readyThreads[id] = nil
+		self.filters[id] = nil
+		return true
+	end
+	return false
+end
+
+function Proc:listThreads()
+	local l = {}
+	for id in pairs(self.runningThreads) do
+		l[#l + 1] = id
+	end
+	for id in pairs(self.readyThreads) do
+		l[#l + 1] = id
+	end
+	for id in pairs(self.blockedThreads) do
+		l[#l + 1] = id
+	end
+	return l
+end
+
+function Proc:threadCount()
+	return table.size(self.runningThreads) + table.size(self.readyThreads) + table.size(self.blockedThreads) - table.size(self.killList)
+end
+
+function Proc:updateThreads()
+	for id in pairs(self.killList) do
+		if self.runningThreads[id] then
+			self.runningThreads[id] = nil
+			self.filters[id] = nil
+		end
+	end
+	table.clear(self.killList)
+	for id in pairs(self.stopList) do
+		if self.runningThreads[id] then
+			self.blockedThreads[id] = self.runningThreads[id]
+			self.runningThreads[id] = nil
+			break
+		end
+	end
+	table.clear(self.stopList)
+	table.copy(self.readyThreads, self.runningThreads)
+	table.clear(self.readyThreads)
+end
+
+local function newProcess(name, env)
+	nPID = nPID + 1
+	local tProc = {}
+	tProc.id = nPID
+	tProc.name = name
+	tProc.running = true
+	tProc.tid = 1
+	tProc.readyThreads = {}
+	tProc.runningThreads = {}
+	tProc.blockedThreads = {}
+	tProc.killList = {}
+	tProc.stopList = {}
+	tProc.filters = {}
+	tProc.env = setmetatable({}, { __index = env })
+	tProc.env._G = tProc.env
+	return setmetatable(tProc, { __index = Proc })
+end
+
+-- API
+
+function createProcess(name, tEnv)
+	local tProc = newProcess(name, tEnv)
+	local id = tProc:getID()
+	if bRunning then
+		tReadyQueue[id] = tProc
+	else
+		tRunningQueue[id] = tProc
+	end
+	return id
+end
+
+function getProcess(pid)
+	pid = pid or nRunningProcess
+	if tRunningQueue[pid] then
+		return tRunningQueue[pid]
+	elseif tBlockedQueue[pid] then
+		return tBlockedQueue[pid]
+	elseif tReadyQueue[pid] then
+		return tReadyQueue[pid]
+	end
+	return nil
+end
+
+function stop(pid)
+	if tRunningQueue[pid] then
+		tRunningQueue[pid]:stop()
+		if bRunning then
+			tStopList[pid] = true
+		else
+			tBlockedQueue[pid] = tRunningQueue[pid]
+			tRunningQueue[pid] = nil
+		end
+		return true
+	elseif tReadyQueue[pid] then
+		tReadyQueue[pid]:stop()
+		tBlockedQueue[pid] = tReadyQueue[pid]
+		tReadyQueue[pid] = nil
+		return true
+	end
+	return false
+end
+
+function resume(pid)
+	if tBlockedQueue[pid] then
+		tBlockedQueue[pid]:resume()
+		if bRunning then
+			tReadyQueue[pid] = tBlockedQueue[pid]
+		else
+			tRunningQueue[pid] = tBlockedQueue[pid]
+		end
+		tBlockedQueue[pid] = nil
+		return true
+	end
+	return false
+end
+
+function kill(pid)
+	if tRunningQueue[pid] then
+		tRunningQueue[pid]:kill()
+		if bRunning then
+			tKillList[pid] = true
+		else
+			tRunningQueue[pid] = nil
+		end
+		return true
+	elseif tBlockedQueue[pid] then
+		tBlockedQueue[pid]:kill()
+		tBlockedQueue[pid] = nil
+		return true
+	elseif tReadyQueue[pid] then
+		tReadyQueue[pid]:kill()
+		tReadyQueue[pid] = nil
+		return true
+	end
+	return false
+end
+
+function list()
+	local l = {}
+	for id, tProc in pairs(tRunningQueue) do
+		local p = {}
+		p.id = id
+		p.name = tProc:getName()
+		l[#l + 1] = p
+	end
+	for id, tProc in pairs(tReadyQueue) do
+		local p = {}
+		p.id = id
+		p.name = tProc:getName()
+		l[#l + 1] = p
+	end
+	for id, tProc in pairs(tBlockedQueue) do
+		local p = {}
+		p.id = id
+		p.name = tProc:getName()
+		l[#l + 1] = p
+	end
+	return l
+end
+
+function count()
+	return table.size(tRunningQueue) + table.size(tReadyQueue) + table.size(tBlockedQueue) - table.size(tKillList)
+end
+
+function running()
+	return nRunningProcess
+end
+
+function createThread(func, pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		return tProc:createThread(func)
+	end
+	return false, "No process with id #"..pid
+end
+
+function killThread(tid, pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		tProc:killThread(tid)
+	end
+	return false
+end
+
+function listThreads(pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		return tProc:listThreads()
+	end
+	return nil
+end
+
+function threadCount(pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		return tProc:threadCount()
+	end
+	return nil
+end
+
+function runningThread()
+	return nRunningThread
+end
+
+-- Run functions
+
+local function updateProcs()
+	for id in pairs(tKillList) do
+		if tRunningQueue[id] then
+			tRunningQueue[id] = nil
+		end
+	end
+	table.clear(tKillList)
+	for id in pairs(tStopList) do
+		if tRunningQueue[id] then
+			tBlockedQueue[id] = tRunningQueue[id]
+			tRunningQueue[id] = nil
+		end
+	end
+	table.clear(tStopList)
+	table.copy(tReadyQueue, tRunningQueue)
+	table.clear(tReadyQueue)
+--[[
+	for _,tProc in pairs(tRunningQueue) do
+		tProc:updateThreads()
+	end
+--]]
+end
+
+local function runProc(tProc, sEvt, ...)
+	tProc:updateThreads()
+	tProc:run(sEvt, ...)
+	if tProc:threadCount() == 0 then
+		local id = tProc:getID()
+		tProc:kill()
+		tKillList[id] = true
+		handleEvent("process_end", id)
+	end
+end
+
+function sendEvent(pid, sEvt, ...)
+	if tRunningQueue[pid] then
+		runProc(tRunningQueue[pid], sEvt, ...)
+	end
+end
+
+function run(sEvt, ...)
+	updateProcs()
+	handleEvent("tick_start")
+	bRunning = true
+	for id, tProc in pairs(tRunningQueue) do
+		runProc(tProc, sEvt, ...)
+	end
+	bRunning = false
+	handleEvent("tick_end")
+end
+
+-- Event Handling
+
+function setEventHandler(evt, handler)
+	tHandlers[evt] = handler
+end

@@ -1,4 +1,0 @@
-libs lists the currently loaded shared libraries available to programs in MysticOS.
-
-Type "help <lib>" to see help for a specific library.
-Call os.loadSharedLib(path) to load extra libraries.

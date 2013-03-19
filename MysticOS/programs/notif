@@ -1,0 +1,67 @@
+-- Notification menu test
+
+-- TODO: scrolling
+
+local notifications = {}
+
+local function addNotification(title, text)
+	local notif = {
+		title = title,
+		text = text
+	}
+	notifications[#notifications + 1] = notif
+end
+
+local function removeNotification(n)
+	emulog.log("Remove notification #"..n) -- DEBUG
+	-- TODO --
+end
+
+local function readNotification(n)
+	emulog.log("Read notification #"..n) -- DEBUG
+	-- TODO --
+end
+
+-- white, orange, magenta, lightBlue, yellow, lime, pink, gray, lightGray, cyan, purple, blue, brown, green, red, black
+
+local backColor = colors.lime
+local textColor = colors.white
+local btnBackColor = colors.red
+local btnTxtColor = colors.gray
+
+local function redraw()
+	graphics.clear(backColor)
+	local n = math.min(#notifications, graphics.getHeight())
+	for y = 1, n do
+		graphics.setBackgroundColor(btnBackColor)
+		graphics.setTextColor(btnTxtColor)
+		graphics.drawChar("X", 1, y)
+		graphics.setBackgroundColor(backColor)
+		graphics.setTextColor(textColor)
+		graphics.write(notifications[y].title, 2, y)
+	end
+end
+
+addNotification("Test1", "Test Notification number 1")
+addNotification("Test2", "Test Notification number 2")
+addNotification("Some larger test title", "Test Notification number 3. This is a larger test notification. Just testing word wraping.")
+
+while true do
+	redraw()
+	local evt, btn, x, y = os.pullEvent("mouse_click", "key")
+	if evt == "mouse_click" then
+		if btn == 1 then
+			if y <= #notifications then
+				if x == 1 then
+					removeNotification(y) -- TODO
+				else
+					readNotification(y)
+				end
+			end
+		end
+	elseif evt == "key" then
+		if btn == keys.Enter then
+			break
+		end
+	end
+end

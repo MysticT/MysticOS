@@ -1,0 +1,130 @@
+-- MysticOS Application Manager Library
+
+local tApps = {}
+local curApp
+
+local function getName(name)
+	if tApps[name] then
+		local n = 2
+		local s = name.." ["..tostring(n).."]"
+		while tApps[s] do
+			n = n + 1
+			s = name.." ["..tostring(n).."]"
+		end
+		name = s
+	end
+	return name
+end
+
+local function addApp(name, path, pid, dispID)
+	tApps[name] = {
+		path = path,
+		pid = pid,
+		dispID = dispID
+	}
+end
+
+-- API
+
+function run(path, env)
+	path = fs.combine(path, "")
+	local func, err = loadfile(path)
+	if func then
+		local name = getName(fs.getName(path))
+		local dispID = display.newDisplay()
+		local pid = proc.createProcess(name, env)
+		local ok, err = proc.createThread(func, pid)
+		if not ok then
+			display.removeDisplay(name)
+			proc.kill(pid)
+			return false, err
+		end
+		proc.stop(pid)
+		addApp(name, path, pid, dispID)
+		return true, name
+	end
+	return false, err
+end
+
+function runOnBackground(path, env)
+	local func, err = loadfile(path)
+	if func then
+		local pid = proc.createProcess(path, env)
+		local ok, err = proc.createThread(func, pid)
+		if not ok then
+			proc.kill(pid)
+			return false, err
+		end
+		return true
+	end
+	return false, err
+end
+
+function switch(name, ...)
+	local tApp = tApps[name]
+	if tApp then
+		if curApp and tApps[curApp] then
+			proc.stop(tApps[curApp].pid)
+		end
+		proc.resume(tApp.pid)
+		display.setCurrentDisplay(tApp.dispID)
+		curApp = name
+		local args = {...}
+		if #args > 0 then
+			proc.sendEvent(tApp.pid, ...)
+		else
+			proc.sendEvent(tApp.pid, "wake")
+		end
+		return true
+	end
+	return false
+end
+
+function stop(name)
+	local tApp = tApps[name]
+	if tApp then
+		if curApp == name then
+			curApp = nil
+		end
+		proc.kill(tApp.pid)
+		display.removeDisplay(tApp.dispID)
+	end
+end
+
+function list()
+	local l = {}
+	for name, tApp in pairs(tApps) do
+		l[#l + 1] = {
+			name = name,
+			path = tApp.path
+		}
+	end
+	return l
+end
+
+function getCurrent()
+	return curApp
+end
+
+function isValid(name)
+	return tApps[name] ~= nil
+end
+
+function onProcessEnd(pid)
+	for name, tApp in pairs(tApps) do
+		if tApp.pid == pid then
+			if curApp == name then
+				curApp = nil
+			end
+			display.removeDisplay(tApp.dispID)
+			tApps[name] = nil
+-- DEBUG --
+local n = next(tApps)
+if n then
+	switch(n)
+end
+-- DEBUG --
+			break
+		end
+	end
+end

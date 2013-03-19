@@ -1,0 +1,243 @@
+-- MysticOS Drawable Lib
+
+local tColorLookup = {}
+for i = 1, 16 do
+	tColorLookup[string.byte("0123456789abcdef", i, i)] = 2 ^ (i - 1)
+end
+
+local function color2str(c)
+	local i = math.floor(math.log(c) / math.log(2)) + 1
+	if i > 0 and i <= 16 then
+		return string.at("0123456789abcdef", i)
+	end
+	return "0"
+end
+
+local function str2color(s, i)
+	return tColorLookup[string.byte(s, i or 1)] or 0
+end
+
+-- Image class
+
+local img = {}
+
+function img:clear()
+	local sBlank = string.rep(" ", self.w)
+	local sBgColor = string.rep(color2str(self.curBgColor), self.w)
+	local sTxtColor = string.rep(color2str(self.curTxtColor), self.w)
+	for y = 1, self.h do
+		self.text[y] = sBlank
+		self.bgColor[y] = sBgColor
+		self.txtColor[y] = sTxtColor
+	end
+end
+
+function img:clearLine(y)
+	y = y or 1
+	if y > 0 and y <= self.h then
+		self.text[y] = string.rep(" ", self.w)
+		self.bgColor[y] = string.rep(color2str(self.curBgColor), self.w)
+		self.txtColor[y] = string.rep(color2str(self.curTxtColor), self.w)
+	end
+end
+
+function img:setBackgroundColor(c, x, y)
+	if x and y then
+		if x > 0 and x <= self.w and y > 0 and y <= self.h then
+			self.bgColor[y] = string.set(self.bgColor[y], x, color2str(c))
+		end
+	else
+		self.curBgColor = c
+	end
+end
+
+function img:getBackgroundColor(x, y)
+	if x and y then
+		if x > 0 and x <= self.w and y > 0 and y <= self.h then
+			return str2color(string.at(self.bgColor[y], x))
+		end
+	else
+		return self.curBgColor
+	end
+end
+
+function img:setTextColor(c, x, y)
+	if x and y then
+		if x > 0 and x <= self.w and y > 0 and y <= self.h then
+			self.txtColor[y] = string.set(self.txtColor[y], x, color2str(c))
+		end
+	else
+		self.curTxtColor = c
+	end
+end
+
+function img:getTextColor(x, y)
+	if x and y then
+		if x > 0 and x <= self.w and y > 0 and y <= self.h then
+			return str2color(string.at(self.txtColor[y], x))
+		end
+	else
+		return self.curTxtColor
+	end
+end
+
+function img:setChar(x, y, c)
+	if x > 0 and x <= self.w and y > 0 and y <= self.h then
+		self.text[y] = string.set(self.text[y], x, string.at(tostring(c), 1))
+	end
+end
+
+function img:getChar(x, y)
+	if x > 0 and x <= self.w and y > 0 and y <= self.h then
+		return string.at(self.text[y], x)
+	end
+end
+
+function img:drawChar(x, y, c)
+	if x > 0 and x <= self.w and y > 0 and y <= self.h then
+		self.bgColor[y] = string.set(self.bgColor[y], x, color2str(self.curBgColor))
+		self.txtColor[y] = string.set(self.txtColor[y], x, color2str(self.curTxtColor))
+		self.text[y] = string.set(self.text[y], x, string.at(tostring(c), 1))
+	end
+end
+
+function img:write(x, y, txt)
+	if x <= self.w and y > 0 and y <= self.h then
+		if x < 1 then
+			txt = string.sub(txt, -x + 1)
+			x = 1
+		end
+		if x + #txt > self.w then
+			txt = string.sub(txt, 1, self.w - x)
+		end
+		self.bgColor[y] = string.replace(self.bgColor[y], x, x + #txt - 1, string.rep(color2str(self.curBgColor), #txt))
+		self.txtColor[y] = string.replace(self.txtColor[y], x, x + #txt - 1, string.rep(color2str(self.curTxtColor), #txt))
+		self.text[y] = string.replace(self.text[y], x, x + #txt - 1, txt)
+		return #txt
+	end
+end
+
+function img:read(x, y, w)
+	if x <= self.w and y > 0 and y <= self.h then
+		if x < 1 then
+			w = w + x - 1
+			x = 1
+		end
+		return string.sub(self.text[y], x, x + w)
+	end
+end
+
+function img:draw(src, x, y, w, h)
+	if x <= self.w and y <= self.h then
+		local sx, sy = 1, 1
+		if x < 1 then
+			w = w + x - 1
+			sx = -x + 1
+			x = 1
+		end
+		if x + w > self.w then
+			w = self.w - x
+		end
+		if y < 1 then
+			h = h + y - 1
+			sy = -y + 1
+			y = 1
+		end
+		if y + h > self.h then
+			h = self.h - y
+		end
+		for i = 0, h - 1 do
+			self.bgColor[y+i] = string.replace(self.bgColor[y+i], x, x + w - 1, string.sub(src.bgColor[sy+i], sx, sx + w))
+			self.txtColor[y+i] = string.replace(self.txtColor[y+i], x, x + w - 1, string.sub(src.txtColor[sy+i], sx, sx + w))
+			self.text[y+i] = string.replace(self.text[y+i], x, x + w - 1, string.sub(src.text[sy+i], sx, sx + w))
+		end
+	end
+end
+
+function img:scroll(n)
+	n = n or 1
+	if n > self.h then
+		self:clear()
+	else
+		for y = 1, self.h - n do
+			self.text[y] = self.text[y + n]
+			self.bgColor[y] = self.bgColor[y + n]
+			self.txtColor[y] = self.txtColor[y + n]
+		end
+		local sBlank = string.rep(" ", self.w)
+		local sBgColor = string.rep(color2str(self.curBgColor), self.w)
+		local sTxtColor = string.rep(color2str(self.curTxtColor), self.w)
+		for y = (self.h - n) + 1, self.h do
+			self.text[y] = sBlank
+			self.bgColor[y] = sBgColor
+			self.txtColor[y] = sTxtColor
+		end
+	end
+end
+
+function img:getSize()
+	return self.w, self.h
+end
+
+function img:getWidth()
+	return self.w
+end
+
+function img:getHeight()
+	return self.h
+end
+
+function img:render(target)
+	if target.isColor and target.isColor() then
+		for y = 1, self.h do
+			target.setCursorPos(1, y)
+			local i = 1
+			local txt = self.text[y]
+			local sBgColor = self.bgColor[y]
+			local sTxtColor = self.txtColor[y]
+			while i <= self.w do
+				local bgColor = str2color(sBgColor, i)
+				local txtColor = str2color(sTxtColor, i)
+				j = i
+				i = i + 1
+				while i <= self.w and bgColor == str2color(sBgColor, i) and
+						txtColor == str2color(sTxtColor, i) do
+					i = i + 1
+				end
+				target.setBackgroundColor(bgColor)
+				target.setTextColor(txtColor)
+				target.write(string.sub(txt, j, i - 1))
+			end
+		end
+	else
+		for y = 1, self.h do
+			target.setCursorPos(1, y)
+			target.write(self.txt[y])
+		end
+	end
+end
+
+-- Lib functions
+
+local drawable = {}
+
+function drawable.new(w, h)
+	local t = {}
+	t.w = w
+	t.h = h
+	t.text = {}
+	t.bgColor = {}
+	t.txtColor = {}
+	t.curBgColor = colors.black
+	t.curTxtColor = colors.white
+	local sBlank = string.rep(" ", w)
+	local sColor = string.rep(color2str(colors.black), w)
+	for y = 1, h do
+		t.text[y] = sBlank
+		t.bgColor[y] = sColor
+		t.txtColor[y] = sColor
+	end
+	return setmetatable(t, { __index = img })
+end
+
+return drawable

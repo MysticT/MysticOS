@@ -1,0 +1,342 @@
+-- MysticOS File System
+
+-- TODO: open handle management
+
+local native = fs
+local tOpenFiles = {}
+
+local function resolvePath(path)
+	return native.combine(path, "")
+end
+
+local function getByte(n, i)
+	return bit.band(bit.brshift(n, i * 8), 0xFF)
+end
+
+local function getSignedByte(n)
+	return (n > 127) and (n - 256) or n
+end
+
+local function getSignedShort(n)
+	return (n > 32767) and (n - 65536) or n
+end
+
+local function getSignedInt(n)
+	return (n > 2147483647) and (n - 4294967296) or n
+end
+
+local function getUnsignedByte(n)
+	return bit.band(n, 0xFF)
+end
+
+local function getUnsignedShort(n)
+	return bit.band(n, 0xFFFF)
+end
+
+local function getUnsignedInt(n)
+	return bit.band(n, 0xFFFFFFFF)
+end
+
+local function readUByte(h)
+	return h.read()
+end
+
+local function readByte(h)
+	return getSignedByte(h.read())
+end
+
+local function readBytes(h, n)
+	local t = {}
+	if n then
+		for i = 1, n do
+			local b = h.read()
+			if not b then
+				break
+			end
+			t[#t + 1] = b
+		end
+	else
+		while true do
+			local b = h.read()
+			if not b then
+				break
+			end
+			t[#t + 1] = b
+		end
+	end
+	return t
+end
+
+local function readUShortLE(h)
+	return h.read() + h.read() * 256
+end
+
+local function readUShortBE(h)
+	return h.read() *256 + h.read()
+end
+
+local function readShortLE(h)
+	return getSignedShort(readUShortLE(h))
+end
+
+local function readShortBE(h)
+	return getSignedShort(readUShortBE(h))
+end
+
+local function readUIntLE(h)
+	return h.read() + h.read() * 256 + h.read() * 65536 + h.read() * 16777216
+end
+
+local function readUIntBE(h)
+	return h.read() * 16777216 + h.read() * 65536 + h.read() * 256 + h.read()
+end
+
+local function readIntLE(h)
+	return getSignedInt(readUIntLE(h))
+end
+
+local function readIntBE(h)
+	return getSignedInt(readUIntBE(h))
+end
+
+local function readChar(h)
+	return string.char(h.read())
+end
+
+local function readString(h, len)
+	local s = ""
+	if len then
+		for i = 1, len do
+			local c = h.read()
+			if not c or c == 0 then
+				break
+			end
+			s = s..string.char(c)
+		end
+	else
+		while true do
+			local c = h.read()
+			if not c or c == 0 then
+				break
+			end
+			s = s..string.char(c)
+		end
+	end
+	return s
+end
+
+local function writeUByte(h, n)
+	return h.write(n)
+end
+
+local function writeByte(h, n)
+	return h.write(getUnsignedByte(n))
+end
+
+local function writeBytes(h, b)
+	if type(b) == "table" then
+		for i = 1, #b do
+			h.write(b[i])
+		end
+	elseif type(b) == "string" then
+		for i = 1, #b do
+			h.write(string.byte(b, i))
+		end
+	end
+end
+
+local function writeUShortLE(h, n)
+	h.write(getByte(n, 0))
+	h.write(getByte(n, 1))
+end
+
+local function writeUShortBE(h, n)
+	h.write(getByte(n, 1))
+	h.write(getByte(n, 0))
+end
+
+local function writeShortLE(h, n)
+	writeUShortLE(h, getUnsignedShort(n))
+end
+
+local function writeShortBE(h, n)
+	writeUShortBE(h, getUnsignedShort(n))
+end
+
+local function writeUIntLE(h, n)
+	h.write(getByte(n, 0))
+	h.write(getByte(n, 1))
+	h.write(getByte(n, 2))
+	h.write(getByte(n, 3))
+end
+
+local function writeUIntBE(h, n)
+	h.write(getByte(n, 3))
+	h.write(getByte(n, 2))
+	h.write(getByte(n, 1))
+	h.write(getByte(n, 0))
+end
+
+local function writeIntLE(h, n)
+	writeUIntLE(h, getUnsignedInt(n))
+end
+
+local function writeIntBE(h, n)
+	writeUIntBE(h, getUnsignedInt(n))
+end
+
+local function writeChar(h, c)
+	h.write(string.byte(c, 1))
+end
+
+local function writeString(h, s)
+	for i = 1, #s do
+		h.write(string.byte(s, i))
+	end
+	h.write(0)
+end
+
+local function closeHandle(path)
+	local t = tOpenFiles[path]
+	if t then
+		proc.closeHandle(t.pid, t.handle)
+	end
+end
+
+local function wrap(h, path, mode)
+	if mode == "r" then
+		return {
+			readLine = function() return h.readLine() end,
+			readAll = function() return h.readAll() end,
+			close = function() closeHandle(path) h.close() end
+		}
+	elseif mode == "w" or mode == "a" then
+		return {
+			write = function(s) h.write(s) end,
+			writeLine = function(s) h.readLine(s) end,
+			flush = function() h.flush() end,
+			close = function() closeHandle(path) h.close() end
+		}
+	elseif mode == "rb" then
+		return {
+			read = function() return h.read() end,
+			readUByte = function() return readUByte(h) end,
+			readByte = function() return readByte(h) end,
+			readBytes = function(n) return readBytes(h, n) end,
+			readUShort = function() return readUShortLE(h) end,
+			readShort = function() return readShortLE(h) end,
+			readUShortLE = function() return readUShortLE(h) end,
+			readUShortBE = function() return readUShortBE(h) end,
+			readShortLE = function() return readShortLE(h) end,
+			readShortBE = function() return readShortBE(h) end,
+			readUInt = function() return readUIntLE(h) end,
+			readInt = function() return readIntLE(h) end,
+			readUIntLE = function() return readUIntLE(h) end,
+			readUIntBE = function() return readUIntBE(h) end,
+			readIntLE = function() return readIntLE(h) end,
+			readIntBE = function() return readIntBE(h) end,
+			readChar = function() return readChar(h) end,
+			readString = function(len) return readString(h, len) end,
+			close = function() closeHandle(path) h.close() end
+		}
+	elseif mode == "wb" or mode == "ab" then
+		return {
+			write = function(n) h.write(n) end,
+			writeUByte = function(n) writeUByte(h, n) end,
+			writeByte = function(n) writeByte(h, n) end,
+			writeBytes = function(t) writeBytes(h, t) end,
+			writeUShort = function(n) writeUShortLE(h, n) end,
+			writeShort = function(n) writeShortLE(h, n) end,
+			writeUShortLE = function(n) writeUShortLE(h, n) end,
+			writeUShortBE = function(n) writeUShortBE(h, n) end,
+			writeShortLE = function(n) writeShortLE(h, n) end,
+			writeShortBE = function(n) writeShortBE(h, n) end,
+			writeUInt = function(n) writeUIntLE(h, n) end,
+			writeInt = function(n) writeIntLE(h, n) end,
+			writeUIntLE = function(n) writeUIntLE(h, n) end,
+			writeUIntBE = function(n) writeUIntBE(h, n) end,
+			writeIntLE = function(n) writeIntLE(h, n) end,
+			writeIntBE = function(n) writeIntBE(h, n) end,
+			writeChar = function(c) writeChar(h, c) end,
+			writeString = function(s) writeString(h, s) end,
+			flush = function() h.flush() end,
+			close = function() closeHandle(path) h.close() end
+		}
+	end
+end
+
+-- API
+
+function list(path, bIncludeHidden)
+	local l = native.list(path)
+	if not bIncludeHidden then
+		local t = {}
+		for i = 1, #l do
+			if string.at(l[i], 1) ~= "." then
+				t[#t + 1] = l[i]
+			end
+		end
+		return t
+	end
+	return l
+end
+
+function exists(path)
+	return native.exists(path)
+end
+
+function isDir(path)
+	return native.isDir(path)
+end
+
+function isReadOnly(path)
+	return native.isReadOnly(path)
+end
+
+function getName(path)
+	return native.getName(path)
+end
+
+function getDrive(path)
+	return native.getDrive(path)
+end
+
+function getSize(path)
+	return native.getSize(path)
+end
+
+function makeDir(path)
+	return native.makeDir(path)
+end
+
+function move(srcPath, dstPath)
+	return native.move(path)
+end
+
+function copy(srcPath, dstPath)
+	return native.copy(path)
+end
+
+function delete(path)
+	return native.delete(path)
+end
+
+function combine(basePath, localPath)
+	return native.combine(basePath, localPath)
+end
+
+function isOpen(path)
+	return tOpenFiles[resolvePath(path)] ~= nil
+end
+
+function open(path, mode)
+	path = resolvePath(path)
+	local handle = native.open(path, mode)
+	if handle then
+		local pid = proc.running()
+		local h = wrap(handle, path, mode)
+		tOpenFiles[path] = { ["pid"] = pid, ["handle"] = h }
+		proc.openHandle(pid, h)
+		return h
+	end
+end

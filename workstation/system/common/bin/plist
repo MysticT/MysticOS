@@ -1,4 +1,0 @@
-print("PID Name Threads")
-for _,proc in ipairs(os.getProcesses()) do
-	print(string.format("%-3d %s %d", proc.id, proc.name, os.threadCount(proc.id)))
-end

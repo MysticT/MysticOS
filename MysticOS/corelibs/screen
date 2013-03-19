@@ -1,0 +1,113 @@
+-- MysticOS Screen Library
+
+local nativeTerm = term
+
+local targets = {}
+
+local function getCurrentTarget()
+	return #targets > 0 and targets[#targets] or nativeTerm
+end
+
+-- Screen API
+
+function write(txt)
+	local target = getCurrentTarget()
+	if target and target.write then
+		target.write(txt)
+	end
+end
+
+function clear()
+	local target = getCurrentTarget()
+	if target and target.clear then
+		target.clear()
+	end
+end
+
+function clearLine()
+	local target = getCurrentTarget()
+	if target and target.clearLine then
+		target.clearLine()
+	end
+end
+
+function getCursorPos()
+	local target = getCurrentTarget()
+	if target and target.getCursorPos then
+		return target.getCursorPos()
+	end
+	return 0, 0
+end
+
+function setCursorPos(x, y)
+	local target = getCurrentTarget()
+	if target and target.setCursorPos then
+		target.setCursorPos(x, y)
+	end
+end
+
+function setCursorBlink(b)
+	local target = getCurrentTarget()
+	if target and target.setCursorBlink then
+		target.setCursorBlink(b)
+	end
+end
+
+function isColor()
+	local target = getCurrentTarget()
+	if target and target.isColor then
+		return target.isColor()
+	end
+	return false
+end
+isColour = isColor
+
+function getSize()
+	local target = getCurrentTarget()
+	if target and target.getSize then
+		return target.getSize()
+	end
+	return 0, 0
+end
+
+function getWidth()
+	local w, h = getSize()
+	return w
+end
+
+function getHeight()
+	local w, h = getSize()
+	return h
+end
+
+function scroll(n)
+	local target = getCurrentTarget()
+	if target and target.scroll then
+		target.scroll(n)
+	end
+end
+
+function setTextColor(c)
+	local target = getCurrentTarget()
+	if target and target.setTextColor then
+		target.setTextColor(c)
+	end
+end
+setTextColour = setTextColor
+
+function setBackgroundColor(c)
+	local target = getCurrentTarget()
+	if target and target.setBackgroundColor then
+		target.setBackgroundColor(c)
+	end
+end
+setBackgroundColour = setBackgroundColor
+
+function redirect(target)
+	assert(type(target) == "table", "redirect: table expected, got "..type(target))
+	targets[#targets + 1] = target
+end
+
+function restore()
+	targets[#targets] = nil
+end

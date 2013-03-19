@@ -1,0 +1,76 @@
+-- MysticOS System Library
+
+-- Version
+
+local sVersion = "MysticOS 0.1.1"
+local nVersion = 0
+local nVerMin = 1
+local nVerBuild = 1
+
+function version()
+	return sVersion
+end
+
+function checkVersion(ver, minor, build)
+	if ver > nVersion then
+		return false
+	end
+	if minor and minor > nVerMin then
+		return false
+	end
+	if build and build > nVerBuild then
+		return false
+	end
+	return true
+end
+
+local bAdvanced = term.isColor and term.isColor()
+
+function isAdvanced()
+	return bAdvanced
+end
+
+-- Execution control
+
+local bRunning = true
+
+function shutdown()
+	bRunning = false
+end
+
+-- Event handling
+
+local tHandlers = {}
+
+function addEventHandler(sEvt, fHandler)
+	if not tHandlers[sEvt] then
+		tHandlers[sEvt] = {}
+	end
+	tHandlers[sEvt][#tHandlers[sEvt] + 1] = fHandler
+end
+
+local function handleEvent(sEvt, ...)
+	local bHandled = false
+	if sEvt and tHandlers[sEvt] then
+		for _,handler in ipairs(tHandlers[sEvt]) do
+			if handler(...) then
+				bHandled = true
+			end
+		end
+	end
+	return bHandled
+end
+
+-- Run
+
+function run()
+	local tEvt = {}
+	while bRunning do
+		if not handleEvent(unpack(tEvt)) then
+			proc.run(unpack(tEvt))
+		end
+		if bRunning then
+			tEvt = { coroutine.yield() }
+		end
+	end
+end

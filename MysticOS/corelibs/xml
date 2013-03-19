@@ -1,0 +1,68 @@
+-- MysticOS XML Library
+
+-- TODO --
+
+local function isWhiteSpace(c)
+	return c == " " or c == "\n" or c == "\t"
+end
+
+local function skipWhiteSpace(str, i)
+	while isWhiteSpace(string.at(str, i)) do
+		i = i + 1
+	end
+	return i
+end
+
+local function parseTag(str, i)
+	-- TODO --
+	if string.at(str, i) ~= "<" then
+		return nil
+	end
+	i = i + 1
+	if i > #str then
+		return nil
+	end
+	local c = string.at(str, i)
+	i = i + 1
+	local tag = {}
+	if c == "?" then
+		-- XML Declaration
+	else
+		-- Tag Name
+		local name = c
+		local char = string.at(str, i)
+		while not isWhiteSpace(char) and char ~= "/" and char ~= ">" do
+			name = name..char
+			i = i + 1
+			char = string.at(str, i)
+		end
+		-- Tag Attributes
+		if char ~= "/" and char ~= ">" then
+			i = skipWhiteSpace(str, i)
+			-- TODO: attributes
+		end
+		if char == "/" then
+			if string.at(str, i) then
+			end
+		else
+		end
+	end
+end
+
+-- API
+
+function parse(str)
+	-- TODO --
+end
+
+function parseFile(sPath)
+	local file = fs.open(sPath, "r")
+	if file then
+		local str = file.readAll()
+		file.close()
+		return parse(str)
+	end
+	return nil, "Error opening file "..sPath
+end
+
+-- TODO: encode, save

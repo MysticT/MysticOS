@@ -1,1 +1,0 @@
-print("The time is ", utils.formatTime(os.time(), false))

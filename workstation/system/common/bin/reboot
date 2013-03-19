@@ -1,3 +1,0 @@
-print("Goodbye")
-sleep(1)
-shell.reboot()

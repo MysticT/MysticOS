@@ -1,0 +1,130 @@
+-- MysticOS Keys Library
+
+local tKeys = {
+	"escape", "one", "two", "three", "four",
+	"five", "six", "seven", "eight", "nine",
+	"zero", "minus", "equals", "backspace", "tab",
+	"q", "w", "e", "r", "t",
+	"y", "u", "i", "o", "p",
+	"leftBracket", "rightBracket", "enter", "leftCtrl", "a",
+	"s", "d", "f", "g", "h",
+	"j", "k", "l", "semiColon", "apostrophe",
+	"grave", "leftShift", "backslash", "z", "x",
+	"c", "v", "b", "n", "m",
+	"comma", "period", "slash", "rightShift", "multiply",
+	"leftAlt", "space", "capsLock", "f1", "f2",
+	"f3", "f4", "f5", "f6", "f7",
+	"f8", "f9", "f10", "numLock", "scrollLock",
+	"numPad7", "numPad8", "numPad9", "numPadSubtract", "numPad4",
+	"numPad5", "numPad6", "numPadAdd", "numPad1", "numPad2",
+	"numPad3", "numPad0", "numPadDecimal", nil, nil,
+	nil, "f11", "f12", nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, "f13",
+	"f14", "f15", nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, "kana", nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	"convert", nil, "noconvert", nil, "yen",
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	"numPadEquals", nil, nil, "circumflex", "at",
+	"colon", "underscore", "kanji", "stop", "ax",
+	nil, "numPadEnter", "rightCtrl", nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, "numPadComma", nil,
+	"numPadDivide", nil, nil, "rightAlt", nil,
+	nil, nil, nil, nil, nil,
+	nil, nil, nil, nil, nil,
+	nil, "pause", nil, "home", "up",
+	"pageUp", nil, "left", nil, "right",
+	nil, "end", "down", "pageDown", "insert",
+	"delete", nil, nil, nil, nil, -- 211
+	nil, nil, nil, "leftMeta", "rightMeta", -- 216
+	"menu" -- 221
+}
+
+local keys = {}
+
+for nKey, sKey in pairs(tKeys) do
+	keys[sKey] = nKey
+end
+keys["return"] = keys.enter
+
+-- Symbols
+local tSymbols = {
+	keys.minus, keys.equals, keys.leftBracket, keys.rightBracket, keys.semiColon, keys.apostrophe,
+	keys.grave, keys.backslash, keys.comma, keys.period, keys.slash, keys.circumflex, keys.at,
+	keys.colon, keys.underscore, keys.multiply, keys.numPadDivide, keys.numPadSubtract, keys.numPadAdd,
+	keys.numPadDecimal
+}
+
+-- Special Keys
+local tSpecial = {
+	keys.escape, keys.backspace, keys.tab, keys.enter, keys.leftCtrl, keys.rightCtrl, keys.leftShift,
+	keys.rightShift, keys.leftAlt, keys.rightAlt, keys.space, keys.capsLock, keys.numLock, keys.scrollLock,
+	keys.home, keys["end"], keys.pageUp, keys.pageDown, keys.insert, keys.delete, keys.leftMeta, keys.rightMeta,
+	keys.menu
+}
+
+-- API Functions
+
+function keys.getName(key)
+	return tKeys[key]
+end
+
+function keys.isLetter(key)
+	return (key >= 16 and key <= 25) or (key >= 30 and key <= 38) or (key >= 44 and key <= 50)
+end
+
+function keys.isNumber(key)
+	return key >= 2 and key <= 11
+end
+
+function keys.isSpace(key)
+	return key == keys.space or key == keys.tab or key == keys.enter
+end
+
+function keys.isSymbol(key)
+	return table.contains(tSymbols, key)
+end
+
+function keys.isSpecial(key)
+	return table.contains(tSpecial, key)
+end
+
+function keys.isArrow(key)
+	return key == keys.up or key == keys.down or key == keys.left or key == keys.right
+end
+
+function keys.isFunction(key)
+	return (key >= 59 and key <= 68) or key == 87 or key == 88 or (key >= 100 and key <= 102)
+end
+
+function keys.isChar(key)
+	return isLetter(key) or isNumber(key) or isSpace(key) or isSymbol(key)
+end
+
+function keys.toChar(key)
+	-- TODO: symbols
+	if keys.isLetter(key) then
+		return keys.getName(key)
+	elseif keys.isNumber(key) then
+		return tostring((key - 1) % 10)
+	elseif isSpace(key) then
+		if key == keys.space then
+			return " "
+		elseif key == keys.enter then
+			return "\n"
+		elseif key == keys.tab then
+			return "\t"
+		end
+	end
+	return nil
+end
+
+return keys
