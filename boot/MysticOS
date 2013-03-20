@@ -1,11 +1,4 @@
--- MysticOS kernel
-
---[[
-TODO:
-	* error handling
-	+ api protection?
-	+ turtle support
---]]
+-- MysticCore
 
 __VERSION = "MysticCore 0.2"
 
@@ -150,29 +143,107 @@ end
 
 -- Misc. functions
 
+local native_getmetatable
 function getmetatable(t)
-	if native.type(t) == "string" then
-		native.error("Attempt to access string metatable", 2)
+	if type(t) == "string" then
+		error("Attempt to access string metatable", 2)
 		return nil
 	end
-	return native.getmetatable(t)
+	return native_getmetatable(t)
 end
 
 -- TODO: getfenv, setfenv
 
+-- Error Handling
+
+local function write(sText)
+	sText = tostring(sText)
+	local nLines = 0
+	local w, h = term.getSize()
+	if w < 1 and h < 1 then
+		return 0
+	end
+	local x, y = term.getCursorPos()
+	local function newline()
+		if y + 1 <= h then
+			term.setCursorPos(1, y + 1)
+		else
+			term.scroll(1)
+			term.setCursorPos(1, h)
+		end
+		x, y = term.getCursorPos()
+		nLines = nLines + 1
+	end
+	while #sText > 0 do
+		local space = string.match(sText, "^([ \t]+)")
+		if space then
+			term.write(space)
+			x, y = term.getCursorPos()
+			sText = string.sub(sText, #space + 1)
+		end
+		while string.at(sText, 1) == "\n" do
+			newline()
+			sText = string.sub(sText, 2)
+		end
+		if #sText > 0 then
+			local txt = string.match(sText, "^[^ \t\n]+")
+			if txt then
+				sText = string.sub(sText, #txt + 1)
+				if #txt > w then
+					while #txt > 0 do
+						if x > w then
+							newline()
+						end
+						term.write(txt)
+						txt = string.sub(txt, (w - x) + 2)
+						x, y = term.getCursorPos()
+					end
+				else
+					if #txt > w - x then
+						newline()
+					end
+					term.write(txt)
+					x, y = term.getCursorPos()
+				end
+			end
+		end
+	end
+	return nLines
+end
+
+local function print(...)
+	local nLines = 0
+	for i = 1, #arg do
+		nLines = nLines + write(tostring(arg[i]))
+	end
+	nLines = nLines + write("\n", true)
+	return nLines
+end
+
+local function showError(title, err)
+	term.clear()
+	local w, h = term.getSize()
+	term.setCursorPos(math.floor((w / 2) - (#title / 2)), 1)
+	write(title)
+	term.setCursorPos(1, 2)
+	print(err)
+	print("\nPress any key to continue...")
+	coroutine.yield("key")
+end
+
 -- Environment
 
-local kernelEnv = {}
+local coreEnv = {}
 
 for k, v in pairs(getfenv()) do
-	kernelEnv[k] = v
+	coreEnv[k] = v
 end
 
 -- Load corelibs
 
 local function loadLib(path)
 	local tEnv = {}
-	setmetatable(tEnv, { __index = kernelEnv })
+	setmetatable(tEnv, { __index = coreEnv })
 	local fnLib, err = loadfile(path, tEnv)
 	if not fnLib then
 		return false, err
@@ -187,7 +258,7 @@ local function loadLib(path)
 			lib[k] = v
 		end
 	end
-	kernelEnv[fs.getName(path)] = lib
+	coreEnv[fs.getName(path)] = lib
 	return true
 end
 
@@ -197,30 +268,34 @@ local function loadCoreLibs(sPath)
 	for i = 1, #libsList do
 		local path = fs.combine(sPath, libsList[i])
 		if fs.isDir(path) then
-			loadCoreLibs(path)
+			local ok, err = loadCoreLibs(path)
+			if not ok then
+				return false, err
+			end
 		else
 			local ok, err = loadLib(path)
--- DEBUG --
-if not ok then
-	emulog.log(err) -- DEBUG
-end
--- DEBUG --
+			if not ok then
+				return false, err
+			end
 		end
 	end
+	return true
 end
 
-emulog.clear() -- DEBUG
-
-loadCoreLibs(sLibsPath)
+local ok, err = loadCoreLibs(sLibsPath)
+if not ok then
+	showError("Error loading libraries", err)
+	return
+end
 
 -- Startup
 
-local func, err = loadfile(sStartupPath, kernelEnv)
+local func, err = loadfile(sStartupPath, coreEnv)
 if func then
 	local ok, err = pcall(func)
 	if not ok then
-		error(err, 0) -- TODO
+		showError("Error", err)
 	end
 else
-	error(err, 0) -- TODO
+	showError("Error loading startup file", err)
 end
