@@ -1,0 +1,6 @@
+-- MysticOS Home Menu
+
+-- TODO --
+
+sleep(0.1)
+os.run("/MysticOS/programs/terminal")

@@ -2,9 +2,12 @@
 
 --[[
 TODO:
-	+ controls:
+	.controls:
 		+ menu
 		+ label
+		+ checkbox
+	.Control:
+		+ aligned print (right, left, center)
 --]]
 
 -- Helper functions
@@ -148,6 +151,63 @@ function Control:drawChar(c, x, y)
 	self.buff:drawChar(x, y, c)
 end
 
+function Control:print(sText, x, y)
+	sText = tostring(sText)
+	local nLines = 0
+	local w, h = self:getSize()
+	if w < 1 or h < 1 then
+		return 0
+	end
+	x = x or self.cursorX
+	y = y or self.cursorY
+	self:setCursorPos(x, y)
+	local function newline()
+		if y + 1 <= h then
+			self:setCursorPos(1, y + 1)
+		else
+			self:scroll(1)
+			self:setCursorPos(1, h)
+		end
+		x, y = self:getCursorPos()
+		nLines = nLines + 1
+	end
+	while #sText > 0 do
+		local space = string.match(sText, "^([ \t]+)")
+		if space then
+			self:write(space)
+			x, y = self:getCursorPos()
+			sText = string.sub(sText, #space + 1)
+		end
+		while string.at(sText, 1) == "\n" do
+			newline()
+			sText = string.sub(sText, 2)
+		end
+		if #sText > 0 then
+			local txt = string.match(sText, "^[^ \t\n]+")
+			if txt then
+				sText = string.sub(sText, #txt + 1)
+				if #txt > w then
+					while #txt > 0 do
+						if x > w then
+							newline()
+						end
+						self:write(txt)
+						txt = string.sub(txt, (w - x) + 2)
+						x, y = self:getCursorPos()
+					end
+				else
+					if #txt > w - x then
+						newline()
+					end
+					self:write(txt)
+					x, y = self:getCursorPos()
+				end
+			end
+		end
+	end
+	return nLines
+end
+
 function Control:render()
 	display.draw(self.buff, 0, 0, self.x, self.y, self.buff:getWidth(), self.buff:getHeight())
 end
@@ -157,6 +217,8 @@ function control(x, y, z, w, h)
 	ctrl.x = x
 	ctrl.y = y
 	ctrl.z = z
+	ctrl.cursorX = 1
+	ctrl.cursorY = 1
 	ctrl.buff = image.new(w, h)
 	return newObj(ctrl, Control)
 end
@@ -504,4 +566,50 @@ function sliderBar(x, y, z, w, h, onClick)
 	sbar.active = true
 	sbar.onClick = onClick
 	return newObj(sbar, SliderBar)
+end
+
+-- Message Box
+
+MessageBox = newClass(Control)
+
+function MessageBox:draw()
+	self:clear()
+	local w, h = self:getSize()
+	self:write(self.title, math.floor((w / 2) - (#self.title / 2)), 1)
+	self:print(self.msg, 1, 2)
+	-- TODO: buttons
+end
+
+function messageBox(x, y, z, w, h, title, msg)
+	local msgbox = control(x, y, z, w, h)
+	msgbox.title = tostring(title)
+	msgbox.msg = tostring(msg)
+	return newObj(msgbox, MessageBox)
+end
+
+function message(w, h, title, msg, bgColor, txtColor)
+	local sw, sh = term.getSize()
+	local x = math.floor((sw / 2) - (w / 2))
+	local y = math.floor((sh / 2) - (h / 2))
+	local msgbox = messageBox(x, y, 0, w, h, title, msg)
+	if bgColor then
+		msgbox:setBackgroundColor(bgColor)
+	end
+	if txtColor then
+		msgbox:setTextColor(txtColor)
+	end
+	while true do
+		msgbox:draw()
+		msgbox:render()
+		local evt, arg, mx, my = os.pullEvent("mouse_click", "key")
+		if evt == "mouse_click" then
+			if arg == 1 and checkControlBounds(msgbox, mx, my) then
+				break
+			end
+		elseif evt == "key" then
+			if arg == keys.enter then
+				break
+			end
+		end
+	end
 end

@@ -1,4 +1,0 @@
-local apps = os.runningApps()
-for i = 1, #apps do
-	print(apps[i].name)
-end

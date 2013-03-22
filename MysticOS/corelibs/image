@@ -250,6 +250,23 @@ function img:drawChar(x, y, c)
 	end
 end
 
+function img:copy()
+	local tImg = {}
+	tImg.width = self.width
+	tImg.height = self.height
+	tImg.text = {}
+	tImg.bgColor = {}
+	tImg.txtColor = {}
+	tImg.curBgColor = self.curBgColor
+	tImg.curTxtColor = self.curTxtColor
+	for y = 1, self.height do
+		tImg.text[y] = self.text[y]
+		tImg.bgColor[y] = self.bgColor[y]
+		tImg.txtColor[y] = self.txtColor[y]
+	end
+	return setmetatable(tImg, { __index = img, __metatable = "Image" })
+end
+
 function img:resize(width, height)
 	if self.width ~= width or self.height ~= height then
 		local h = math.min(self.height, height)

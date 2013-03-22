@@ -6,6 +6,8 @@ TODO:
 	+ error handling (show error message)
 	.APIs:
 		+ peripheral
+		.os:
+			+ loadAPI & unloadAPI
 --]]
 
 -- Environments
@@ -42,7 +44,8 @@ end
 function os.pullEvent(...)
 	local tEvt = { coroutine.yield(...) }
 	if tEvt[1] == "terminate" then
-		-- TODO: terminate main process
+		app.stop()
+		return os.pullEvent(...)
 	end
 	return unpack(tEvt)
 end
@@ -105,6 +108,7 @@ function os.run(path, ...)
 	if not ok then
 		return false, name
 	end
+	-- TODO: check if there's another app waiting to start
 	bSwitchApp = true
 	sAppName = name
 	tAppArgs = { ... }
@@ -129,10 +133,21 @@ function os.runningApps()
 	return app.list()
 end
 
---[[
-TODO:
-	+ loadAPI & unloadAPI (?)
---]]
+function os.addNotification(title, msg)
+	return notifications.add(title, msg)
+end
+
+function os.removeNotification(id)
+	notifications.remove(id)
+end
+
+function os.getNotification(id)
+	return notifications.get(id)
+end
+
+function os.listNotifications()
+	return notifications.list()
+end
 
 -- Global functions
 
@@ -144,7 +159,7 @@ function write(sText)
 	sText = tostring(sText)
 	local nLines = 0
 	local w, h = term.getSize()
-	if w < 1 and h < 1 then
+	if w < 1 or h < 1 then
 		return 0
 	end
 	local x, y = term.getCursorPos()
@@ -315,20 +330,23 @@ local screenWidth, screenHeight = screen.getSize()
 -- System Bar Buttons
 
 local function home()
-	-- TODO --
+	os.run("/MysticOS/programs/home")
+	os.queueEvent("run")
 end
 
 local function showTasks()
-	-- TODO --
+	os.run("/MysticOS/programs/tasks")
+	os.queueEvent("run")
 end
 
 local function showNotifications()
-	-- TODO --
+	os.run("/MysticOS/programs/notif")
+	os.queueEvent("run")
 end
 
 local function systemMenu()
-	os.reboot()
-	-- TODO --
+	os.run("/MysticOS/programs/sysmenu")
+	os.queueEvent("run")
 end
 
 local homeBtn = display.addButton(1, "M", colors.orange, colors.red, home)
@@ -336,10 +354,20 @@ local tasksBtn = display.addButton(2, "T", colors.yellow, colors.red, showTasks)
 local notifBtn = display.addButton(screenWidth - 1, "N", colors.lightGray, colors.gray, showNotifications)
 local systemBtn = display.addButton(screenWidth, "S", colors.blue, colors.white, systemMenu)
 
+local function updateNotifications()
+	if notifications.pending() then
+		notifBtn:setBackgroundColor(colors.lime)
+		notifBtn:setTextColor(colors.lightBlue)
+	else
+		notifBtn:setBackgroundColor(colors.lightGray)
+		notifBtn:setTextColor(colors.gray)
+	end
+end
+
 -- Event handlers
 
 system.addEventHandler("key", function(key)
-	if key == keys.menu then -- TODO
+	if key == keys.f9 then
 		-- Home
 		home()
 	elseif key == keys.f10 then
@@ -368,16 +396,15 @@ proc.setEventHandler("error", function(pid, tid, err)
 	-- TODO --
 end)
 
-proc.setEventHandler("process_end", function(pid)
-	app.onProcessEnd(pid)
-end)
-
 proc.setEventHandler("tick_end", function()
 	if bSwitchApp then
-		app.switch(sAppName, unpack(tAppArgs))
 		bSwitchApp = false
+		app.switch(sAppName, unpack(tAppArgs))
 	end
 end)
+
+notifications.setEventHandler("new_notification", updateNotifications)
+notifications.setEventHandler("notification_removed", updateNotifications)
 
 -- Initialize Environments
 
@@ -412,20 +439,13 @@ do
 	tBackgroundEnv._G = tBackgroundEnv
 end
 
--- Run
-
-emulog.log("Running...") -- DEBUG
+-- Initialize libraries
 
 display.init()
+app.init()
+
+-- Initial render
 display.redrawAll()
 
----[[
-local ok, err = os.run("/MysticOS/programs/terminal")
-if not ok then
-	emulog.log(err) -- DEBUG
-end
---]]
-
+-- Start running
 system.run()
-
-emulog.log("Shuting down") -- DEBUG

@@ -1,0 +1,56 @@
+-- MysticOS Notifications Library
+
+local tNotif = {}
+local tHandlers = {}
+
+local function handleEvent(evt, ...)
+	if tHandlers[evt] then
+		tHandlers[evt](...)
+	end
+end
+
+-- API
+
+function add(title, msg)
+	local id = #tNotif + 1
+	tNotif[id] = {
+		id = id,
+		title = title,
+		msg = msg
+	}
+	handleEvent("new_notification", id, title, msg)
+	return id
+end
+
+function remove(id)
+	if tNotif[id] then
+		tNotif[id] = nil
+		handleEvent("notification_removed", id)
+	end
+end
+
+function pending()
+	return not table.empty(tNotif)
+end
+
+function get(id)
+	return table.copy(tNotif[id])
+end
+
+function list()
+	local l = {}
+	for id, notif in pairs(tNotif) do
+		l[#l + 1] = {
+			id = id,
+			title = notif.title,
+			msg = notif.msg
+		}
+	end
+	return l
+end
+
+-- Event Handling
+
+function setEventHandler(evt, handler)
+	tHandlers[evt] = handler
+end

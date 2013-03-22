@@ -1,67 +1,78 @@
--- Notification menu test
-
--- TODO: scrolling
-
-local notifications = {}
-
-local function addNotification(title, text)
-	local notif = {
-		title = title,
-		text = text
-	}
-	notifications[#notifications + 1] = notif
-end
-
-local function removeNotification(n)
-	emulog.log("Remove notification #"..n) -- DEBUG
-	-- TODO --
-end
-
-local function readNotification(n)
-	emulog.log("Read notification #"..n) -- DEBUG
-	-- TODO --
-end
-
--- white, orange, magenta, lightBlue, yellow, lime, pink, gray, lightGray, cyan, purple, blue, brown, green, red, black
+-- MysticOS Notification Menu
 
 local backColor = colors.lime
 local textColor = colors.white
 local btnBackColor = colors.red
 local btnTxtColor = colors.gray
+local msgBackColor = colors.blue
+local msgTxtColor = colors.red
+
+local nScroll = 0
+
+local function readNotification(notif)
+	-- TODO --
+	gui.message(20, 5, notif.title, notif.msg, msgBackColor, msgTxtColor)
+end
 
 local function redraw()
 	graphics.clear(backColor)
-	local n = math.min(#notifications, graphics.getHeight())
+	local notifications = os.listNotifications()
+	local n = math.min(#notifications - nScroll, graphics.getHeight())
 	for y = 1, n do
 		graphics.setBackgroundColor(btnBackColor)
 		graphics.setTextColor(btnTxtColor)
-		graphics.drawChar("X", 1, y)
+		graphics.drawChar("x", 1, y)
 		graphics.setBackgroundColor(backColor)
 		graphics.setTextColor(textColor)
-		graphics.write(notifications[y].title, 2, y)
+		graphics.write(notifications[nScroll + y].title, 2, y)
 	end
 end
 
-addNotification("Test1", "Test Notification number 1")
-addNotification("Test2", "Test Notification number 2")
-addNotification("Some larger test title", "Test Notification number 3. This is a larger test notification. Just testing word wraping.")
+local function onClick(x, y)
+	local notifications = os.listNotifications()
+	local i = nScroll + y
+	if i <= #notifications then
+		if x == 1 then
+			os.removeNotification(notifications[i].id)
+		else
+			readNotification(notifications[i])
+		end
+	end
+end
+
+function scrollDown()
+	local notifications = os.listNotifications()
+	if #notifications > graphics.getHeight() and nScroll < #notifications then
+		nScroll = nScroll + 1
+	end
+end
+
+function scrollUp()
+	if nScroll > 0 then
+		nScroll = nScroll - 1
+	end
+end
 
 while true do
 	redraw()
-	local evt, btn, x, y = os.pullEvent("mouse_click", "key")
+	local evt, btn, x, y = os.pullEvent("mouse_click", "mouse_scroll", "key")
 	if evt == "mouse_click" then
 		if btn == 1 then
-			if y <= #notifications then
-				if x == 1 then
-					removeNotification(y) -- TODO
-				else
-					readNotification(y)
-				end
-			end
+			onClick(x, y)
+		end
+	elseif evt == "mouse_scroll" then
+		if btn == 1 then
+			scrollDown()
+		else
+			scrollUp()
 		end
 	elseif evt == "key" then
 		if btn == keys.Enter then
 			break
+		elseif btn == keys.up then
+			scrollUp()
+		elseif btn == keys.down then
+			scrollDown()
 		end
 	end
 end

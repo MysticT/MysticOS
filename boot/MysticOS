@@ -290,6 +290,8 @@ end
 
 -- Startup
 
+emulog.clear()
+
 local func, err = loadfile(sStartupPath, coreEnv)
 if func then
 	local ok, err = pcall(func)

@@ -43,9 +43,7 @@ local tKeys = {
 	nil, "pause", nil, "home", "up",
 	"pageUp", nil, "left", nil, "right",
 	nil, "end", "down", "pageDown", "insert",
-	"delete", nil, nil, nil, nil, -- 211
-	nil, nil, nil, "leftMeta", "rightMeta", -- 216
-	"menu" -- 221
+	"delete"
 }
 
 local keys = {}
@@ -67,8 +65,7 @@ local tSymbols = {
 local tSpecial = {
 	keys.escape, keys.backspace, keys.tab, keys.enter, keys.leftCtrl, keys.rightCtrl, keys.leftShift,
 	keys.rightShift, keys.leftAlt, keys.rightAlt, keys.space, keys.capsLock, keys.numLock, keys.scrollLock,
-	keys.home, keys["end"], keys.pageUp, keys.pageDown, keys.insert, keys.delete, keys.leftMeta, keys.rightMeta,
-	keys.menu
+	keys.home, keys["end"], keys.pageUp, keys.pageDown, keys.insert, keys.delete
 }
 
 -- API Functions

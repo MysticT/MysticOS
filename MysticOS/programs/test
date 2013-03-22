@@ -1,3 +1,11 @@
+os.addNotification("Test1", "Test Notification number 1")
+os.addNotification("Test2", "Test Notification number 2")
+os.addNotification("Test Notification", "This is a test notification. Just to try the notification system.")
+os.addNotification("Some larger test title", "Test Notification number 3. This is a larger test notification. Just to test word wraping.")
+
+--gui.message(20, 4, "Test", "Hello World!", colors.gray, colors.white)
+
+--[[
 local bExit = false
 
 local function exit()
@@ -8,6 +16,7 @@ local screenW, screenH = graphics.getSize()
 local view
 local exitButtton
 local sliderBar
+local msgBox
 
 local function init()
 	-- View
@@ -22,6 +31,11 @@ local function init()
 	sliderBar:setFillColor(colors.lime)
 	sliderBar:setActive(true)
 	view:addChild(sliderBar)
+	-- Message Box
+	msgBox = gui.messageBox(2, 4, 1, 20, 8, "Test", "Hola")
+	msgBox:setBackgroundColor(colors.blue)
+	msgBox:setTextColor(colors.red)
+	view:addChild(msgBox)
 end
 
 local function main()
@@ -42,3 +56,4 @@ if not ok then
 	emulog.log(err)
 	return
 end
+--]]

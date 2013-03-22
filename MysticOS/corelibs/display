@@ -310,6 +310,13 @@ function drawChar(c, x, y)
 	end
 end
 
+function snapshot()
+	local disp = getDisplay()
+	if disp then
+		return disp.img:copy()
+	end
+end
+
 function newDisplay()
 	local disp = {}
 	local w, h = screen.getSize()
