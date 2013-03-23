@@ -391,20 +391,20 @@ system.addEventHandler("resize", function(w, h)
 	systemBtn:setPos(screenWidth)
 end)
 
-proc.setEventHandler("error", function(pid, tid, err)
+proc.addEventHandler("error", function(pid, tid, err)
 	emulog.log("Error (PID: "..pid.." TID: "..tid.."): "..err) -- DEBUG
 	-- TODO --
 end)
 
-proc.setEventHandler("tick_end", function()
+proc.addEventHandler("tick_end", function()
 	if bSwitchApp then
 		bSwitchApp = false
 		app.switch(sAppName, unpack(tAppArgs))
 	end
 end)
 
-notifications.setEventHandler("new_notification", updateNotifications)
-notifications.setEventHandler("notification_removed", updateNotifications)
+notifications.addEventHandler("new_notification", updateNotifications)
+notifications.addEventHandler("notification_removed", updateNotifications)
 
 -- Initialize Environments
 
@@ -412,10 +412,9 @@ do
 	local copy = {
 		-- Global functions
 		"assert", "dofile", "error", "getfenv", "getmetatable", "ipairs", "loadfile",
-		"loadstring", "next", "pairs", "pcall", "print", "printError", "rawequal",
-		"rawget", "rawset", "read", "select", "sleep", "setfenv", "setmetatable",
-		"tonumber", "tostring", "type", "unpack", "write", "xpcall", "__inext",
-		"__VERSION",
+		"loadstring", "next", "pairs", "pcall", "rawequal", "rawget", "rawset",
+		"select", "sleep", "setfenv", "setmetatable", "tonumber", "tostring",
+		"type", "unpack", "xpcall", "__inext", "__VERSION",
 		-- APIs
 		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "fs", "keys", "math", "os",
 		"peripheral", "redstone", "rs", "string", "table", "thread",
@@ -423,6 +422,8 @@ do
 		"emulog"
 	}
 	local main = {
+		-- Global functions
+		"print", "printError", "read", "write",
 		-- APIs
 		"graphics", "gui", "image", "term"
 	}

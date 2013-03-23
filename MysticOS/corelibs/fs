@@ -1,7 +1,5 @@
 -- MysticOS File System
 
--- TODO: open handle management
-
 local native = fs
 local tOpenFiles = {}
 
@@ -196,10 +194,19 @@ local function writeString(h, s)
 	h.write(0)
 end
 
+local function openHandle(path, mode, pid, handle)
+	tOpenFiles[path] = {
+		mode = mode,
+		pid = pid,
+		handle = handle
+	}
+end
+
 local function closeHandle(path)
-	local t = tOpenFiles[path]
-	if t then
-		proc.closeHandle(t.pid, t.handle)
+	local file = tOpenFiles[path]
+	if file then
+		file.handle.close()
+		tOpenFiles[path] = nil
 	end
 end
 
@@ -208,14 +215,14 @@ local function wrap(h, path, mode)
 		return {
 			readLine = function() return h.readLine() end,
 			readAll = function() return h.readAll() end,
-			close = function() closeHandle(path) h.close() end
+			close = function() closeHandle(path) end
 		}
 	elseif mode == "w" or mode == "a" then
 		return {
 			write = function(s) h.write(s) end,
 			writeLine = function(s) h.readLine(s) end,
 			flush = function() h.flush() end,
-			close = function() closeHandle(path) h.close() end
+			close = function() closeHandle(path) end
 		}
 	elseif mode == "rb" then
 		return {
@@ -237,7 +244,7 @@ local function wrap(h, path, mode)
 			readIntBE = function() return readIntBE(h) end,
 			readChar = function() return readChar(h) end,
 			readString = function(len) return readString(h, len) end,
-			close = function() closeHandle(path) h.close() end
+			close = function() closeHandle(path) end
 		}
 	elseif mode == "wb" or mode == "ab" then
 		return {
@@ -260,7 +267,7 @@ local function wrap(h, path, mode)
 			writeChar = function(c) writeChar(h, c) end,
 			writeString = function(s) writeString(h, s) end,
 			flush = function() h.flush() end,
-			close = function() closeHandle(path) h.close() end
+			close = function() closeHandle(path) end
 		}
 	end
 end
@@ -333,10 +340,26 @@ function open(path, mode)
 	path = resolvePath(path)
 	local handle = native.open(path, mode)
 	if handle then
-		local pid = proc.running()
 		local h = wrap(handle, path, mode)
-		tOpenFiles[path] = { ["pid"] = pid, ["handle"] = h }
-		proc.openHandle(pid, h)
+		openHandle(path, mode, proc.running(), handle)
 		return h
+	end
+end
+
+-- Event Handling
+
+local function onProcessEnd(pid)
+	for path, file in pairs(tOpenFiles) do
+		if file.pid == pid then
+			closeHandle(path)
+		end
+	end
+end
+
+local bInit = false
+function init()
+	if not bInit then
+		proc.addEventHandler("process_end", onProcessEnd)
+		bInit = true
 	end
 end

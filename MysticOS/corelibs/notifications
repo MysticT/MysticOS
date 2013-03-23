@@ -4,8 +4,10 @@ local tNotif = {}
 local tHandlers = {}
 
 local function handleEvent(evt, ...)
-	if tHandlers[evt] then
-		tHandlers[evt](...)
+	if evt and tHandlers[evt] then
+		for i = 1, #tHandlers[evt] do
+			tHandlers[evt][i](...)
+		end
 	end
 end
 
@@ -51,6 +53,9 @@ end
 
 -- Event Handling
 
-function setEventHandler(evt, handler)
-	tHandlers[evt] = handler
+function addEventHandler(evt, handler)
+	if not tHandlers[evt] then
+		tHandlers[evt] = {}
+	end
+	tHandlers[evt][#tHandlers[evt] + 1] = handler
 end

@@ -330,6 +330,20 @@ function new(w, h)
 	return setmetatable(tImg, { __index = img, __metatable = "Image" })
 end
 
+-- Yield function
+local yieldTime
+local function yield()
+	if yieldTime then
+		if os.clock() - yieldTime > 2 then
+			os.queueEvent("image_yield")
+			os.pullEvent("image_yield")
+			yieldTime = nil
+		end
+	else
+		yieldTime = os.clock()
+	end
+end
+
 -- Save/Load functions
 
 local function writeHeader(file, tImg)
@@ -364,6 +378,7 @@ local function writeImageData(file, tImg)
 			file.writeUByte(getColorByte(bgColor, txtColor))
 			file.writeChar(string.at(tImg.text[y], x))
 		end
+		yield()
 	end
 end
 

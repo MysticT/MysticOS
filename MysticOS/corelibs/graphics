@@ -84,3 +84,7 @@ end
 function drawChar(c, x, y)
 	display.drawChar(c, x, y)
 end
+
+function snapshot()
+	return display.snapshot()
+end
