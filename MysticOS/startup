@@ -6,8 +6,6 @@ TODO:
 	+ error handling (show error message)
 	.APIs:
 		+ peripheral
-		.os:
-			+ loadAPI & unloadAPI
 --]]
 
 -- Environments
@@ -96,6 +94,35 @@ function os.reboot()
 	nativeOS.reboot()
 	while true do
 		coroutine.yield()
+	end
+end
+
+function os.loadAPI(path)
+	local env = getfenv(2)
+	local tEnv = {}
+	setmetatable(tEnv, { __index = env })
+	local fnAPI, err = loadfile(path, tEnv)
+	if not fnAPI then
+		return false, err
+	end
+	local ok, api = pcall(fnAPI)
+	if not ok then
+		return false, api
+	end
+	if not api then
+		api = {}
+		for k, v in pairs(tEnv) do
+			api[k] = v
+		end
+	end
+	env[fs.getName(path, true)] = api
+	return true
+end
+
+function os.unloadAPI(name)
+	local env = getfenv(2)
+	if env[name] then
+		env[name] = nil
 	end
 end
 

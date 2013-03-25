@@ -8,10 +8,16 @@ local sStartupPath = "MysticOS/startup"
 -- Load functions
 
 function loadfile(sPath, tEnv)
-	local file = fs.open(sPath, "r")
+	local file = fs.open(sPath, "rb")
 	if file then
-		local func, err = loadstring(file.readAll(), fs.getName(sPath))
+		local sCode = ""
+		local b = file.read()
+		while b do
+			sCode = sCode..string.char(b)
+			b = file.read()
+		end
 		file.close()
+		local func, err = loadstring(sCode, fs.getName(sPath))
 		if func and tEnv then
 			setfenv(func, tEnv)
 		end

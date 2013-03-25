@@ -300,8 +300,20 @@ function isReadOnly(path)
 	return native.isReadOnly(path)
 end
 
-function getName(path)
-	return native.getName(path)
+function getName(path, bRemoveExtension)
+	local name = native.getName(path)
+	if bRemoveExtension and string.find(name, "%..+") then
+		name = string.match(name, "(.*)%..+$")
+	end
+	return name
+end
+
+function getExtension(path)
+	path = resolvePath(path)
+	if string.find(path, "%..+$") then
+		return string.match(path, ".*%.(.+)$")
+	end
+	return ""
 end
 
 function getDrive(path)
