@@ -1,0 +1,34 @@
+-- MysticOS Events Library
+
+local tHandlers = {}
+
+function addHandler(evt, handler)
+	checkType(evt, "string")
+	checkType(handler, "function")
+	if not tHandlers[evt] then
+		tHandlers[evt] = {}
+	end
+	tHandlers[evt][#tHandlers[evt] + 1] = handler
+end
+
+function removeHandler(evt, handler)
+	if tHandlers[evt] then
+		for i = 1, #tHandlers[evt] do
+			if tHandlers[evt][i] == handler then
+				table.remove(tHandlers[evt], i)
+			end
+		end
+	end
+end
+
+function dispatch(evt, ...)
+	local bHandled = false
+	if evt and tHandlers[evt] then
+		for i = 1, #tHandlers[evt] do
+			if tHandlers[evt][i](...) then
+				bHandled = true
+			end
+		end
+	end
+	return bHandled
+end

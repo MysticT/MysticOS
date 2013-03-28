@@ -2,7 +2,6 @@
 
 --[[
 TODO:
-	+ menus
 	+ error handling (show error message)
 	.APIs:
 		+ peripheral
@@ -393,7 +392,7 @@ end
 
 -- Event handlers
 
-system.addEventHandler("key", function(key)
+events.addHandler("key", function(key)
 	if key == keys.f9 then
 		-- Home
 		home()
@@ -412,26 +411,26 @@ system.addEventHandler("key", function(key)
 	return true
 end)
 
-system.addEventHandler("resize", function(w, h)
+events.addHandler("resize", function(w, h)
 	screenWidth, screenHeight = w, h
 	notifBtn:setPos(screenWidth - 1)
 	systemBtn:setPos(screenWidth)
 end)
 
-proc.addEventHandler("error", function(pid, tid, err)
+events.addHandler("error", function(pid, tid, err)
 	emulog.log("Error (PID: "..pid.." TID: "..tid.."): "..err) -- DEBUG
 	-- TODO --
 end)
 
-proc.addEventHandler("tick_end", function()
+events.addHandler("tick_end", function()
 	if bSwitchApp then
 		bSwitchApp = false
 		app.switch(sAppName, unpack(tAppArgs))
 	end
 end)
 
-notifications.addEventHandler("new_notification", updateNotifications)
-notifications.addEventHandler("notification_removed", updateNotifications)
+events.addHandler("new_notification", updateNotifications)
+events.addHandler("notification_removed", updateNotifications)
 
 -- Initialize Environments
 
@@ -471,6 +470,7 @@ end
 
 display.init()
 app.init()
+fs.init()
 
 -- Initial render
 display.redrawAll()

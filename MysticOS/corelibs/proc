@@ -10,28 +10,6 @@ local nRunningProcess
 local nRunningThread
 local bRunning = false
 
-local tHandlers = {}
-
-local function handleEvent(evt, ...)
-	if evt and tHandlers[evt] then
-		for i = 1, #tHandlers[evt] do
-			tHandlers[evt][i](...)
-		end
-	end
-end
-
-local function checkFilter(sEvt, tFilter)
-	if sEvt == nil or tFilter == nil or #tFilter == 0 then
-		return true
-	end
-	for i = 1, #tFilter do
-		if tFilter[i] == sEvt then
-			return true
-		end
-	end
-	return false
-end
-
 -- Thread
 
 local Thread = {}
@@ -50,7 +28,7 @@ end
 
 function Thread:kill()
 	self.running = false
-	handleEvent("thread_kill", self.id) -- TODO: pass process id
+	events.dispatch("thread_kill", self.id) -- TODO: pass process id?
 end
 
 function Thread:stop()
@@ -97,7 +75,7 @@ end
 
 function Proc:kill()
 	self.running = false
-	handleEvent("process_kill", self.id)
+	events.dispatch("process_kill", self.id)
 end
 
 function Proc:stop()
@@ -106,6 +84,18 @@ end
 
 function Proc:resume()
 	self.running = true
+end
+
+local function checkFilter(sEvt, tFilter)
+	if sEvt == nil or tFilter == nil or #tFilter == 0 then
+		return true
+	end
+	for i = 1, #tFilter do
+		if tFilter[i] == sEvt then
+			return true
+		end
+	end
+	return false
 end
 
 function Proc:run(sEvt, ...)
@@ -117,11 +107,10 @@ function Proc:run(sEvt, ...)
 				if tStatus[1] then
 					self.filters[id] = { unpack(tStatus, 2) }
 				else
-					handleEvent("error", self.id, id, tStatus[2])
-					-- TODO: kill process?
+					events.dispatch("error", self.id, id, tStatus[2])
 				end
 				if thread:status() == "dead" then
-					handleEvent("thread_end", self.id, id)
+					events.dispatch("thread_end", self.id, id)
 					self.killList[id] = true
 				end
 			end
@@ -358,6 +347,22 @@ function createThread(func, pid)
 	return false, "No process with id #"..pid
 end
 
+function stopThread(tid, pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		return tProc:stopThread(tid)
+	end
+	return false
+end
+
+function resumeThread(tid, pid)
+	local tProc = getProcess(pid)
+	if tProc then
+		return tProc:resumeThread(tid)
+	end
+	return false
+end
+
 function killThread(tid, pid)
 	local tProc = getProcess(pid)
 	if tProc then
@@ -418,7 +423,7 @@ local function runProc(tProc, sEvt, ...)
 		local id = tProc:getID()
 		tProc:kill()
 		tKillList[id] = true
-		handleEvent("process_end", id)
+		events.dispatch("process_end", id)
 	end
 end
 
@@ -430,20 +435,11 @@ end
 
 function run(sEvt, ...)
 	updateProcs()
-	handleEvent("tick_start")
+	events.dispatch("tick_start")
 	bRunning = true
 	for id, tProc in pairs(tRunningQueue) do
 		runProc(tProc, sEvt, ...)
 	end
 	bRunning = false
-	handleEvent("tick_end")
-end
-
--- Event Handling
-
-function addEventHandler(evt, handler)
-	if not tHandlers[evt] then
-		tHandlers[evt] = {}
-	end
-	tHandlers[evt][#tHandlers[evt] + 1] = handler
+	events.dispatch("tick_end")
 end

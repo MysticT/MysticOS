@@ -1,5 +1,7 @@
 -- MysticCore
 
+-- TODO: getfenv, setfenv
+
 __VERSION = "MysticCore 0.2"
 
 local sLibsPath = "MysticOS/corelibs"
@@ -32,6 +34,21 @@ function dofile(sFileName, tEnv)
 		return fnFile()
 	end
 	error(err, 2)
+end
+
+-- Error functions
+
+function assert(condition, msg, level)
+	if not condition then
+		error(msg, (tonumber(level) + 1) or 2)
+	end
+	return condition
+end
+
+function checkType(var, sType)
+	if type(var) ~= sType then
+		error(sType.." expected, got "..type(var), 3)
+	end
 end
 
 -- table functions
@@ -146,19 +163,6 @@ end
 function math.logN(n, base)
 	return math.log(n) / math.log(base)
 end
-
--- Misc. functions
-
-local native_getmetatable
-function getmetatable(t)
-	if type(t) == "string" then
-		error("Attempt to access string metatable", 2)
-		return nil
-	end
-	return native_getmetatable(t)
-end
-
--- TODO: getfenv, setfenv
 
 -- Error Handling
 

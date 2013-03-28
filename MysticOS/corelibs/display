@@ -441,10 +441,10 @@ function init()
 	if not bInit then
 		screenW, screenH = screen.getSize()
 		-- Set event handler
-		system.addEventHandler("timer", handleTimer)
-		system.addEventHandler("mouse_click", onMouseClick)
-		system.addEventHandler("mouse_drag", onMouseDrag)
-		system.addEventHandler("mouse_scroll", onMouseScroll)
+		events.addHandler("timer", handleTimer)
+		events.addHandler("mouse_click", onMouseClick)
+		events.addHandler("mouse_drag", onMouseDrag)
+		events.addHandler("mouse_scroll", onMouseScroll)
 		bInit = true
 	end
 end

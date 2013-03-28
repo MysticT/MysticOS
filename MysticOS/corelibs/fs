@@ -371,7 +371,7 @@ end
 local bInit = false
 function init()
 	if not bInit then
-		proc.addEventHandler("process_end", onProcessEnd)
+		events.addHandler("process_end", onProcessEnd)
 		bInit = true
 	end
 end

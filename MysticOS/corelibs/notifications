@@ -1,15 +1,6 @@
 -- MysticOS Notifications Library
 
 local tNotif = {}
-local tHandlers = {}
-
-local function handleEvent(evt, ...)
-	if evt and tHandlers[evt] then
-		for i = 1, #tHandlers[evt] do
-			tHandlers[evt][i](...)
-		end
-	end
-end
 
 -- API
 
@@ -20,14 +11,14 @@ function add(title, msg)
 		title = title,
 		msg = msg
 	}
-	handleEvent("new_notification", id, title, msg)
+	events.dispatch("new_notification", id, title, msg)
 	return id
 end
 
 function remove(id)
 	if tNotif[id] then
 		tNotif[id] = nil
-		handleEvent("notification_removed", id)
+		events.dispatch("notification_removed", id)
 	end
 end
 
@@ -49,13 +40,4 @@ function list()
 		}
 	end
 	return l
-end
-
--- Event Handling
-
-function addEventHandler(evt, handler)
-	if not tHandlers[evt] then
-		tHandlers[evt] = {}
-	end
-	tHandlers[evt][#tHandlers[evt] + 1] = handler
 end

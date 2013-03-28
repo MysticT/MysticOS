@@ -104,7 +104,7 @@ end
 setBackgroundColour = setBackgroundColor
 
 function redirect(target)
-	assert(type(target) == "table", "redirect: table expected, got "..type(target))
+	checkType(target, "table")
 	targets[#targets + 1] = target
 end
 

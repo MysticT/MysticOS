@@ -4,15 +4,23 @@ function new(func)
 	return proc.createThread(func)
 end
 
-function kill(tid)
-	return proc.killThread(tid)
+function stop(id)
+	return proc.stopThread(id)
+end
+
+function resume(id)
+	return proc.resumeThread(id)
+end
+
+function kill(id)
+	return proc.killThread(id)
 end
 
 function list()
 	return proc.listThreads()
 end
 
-function count(pid)
+function count()
 	return proc.threadCount()
 end
 

@@ -20,7 +20,7 @@ for k, v in pairs(native) do
 end
 
 function term.redirect(target)
-	assert(type(target) == "table", "redirect: table expected, got "..type(target))
+	checkType(target, "table")
 	targets[#targets + 1] = target
 end
 
