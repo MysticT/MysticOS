@@ -1,0 +1,25 @@
+-- MysticOS Home Menu
+
+-- Colors
+local backColor = colors.black
+
+local function redraw()
+	graphics.clear(backColor)
+	-- TODO --
+end
+
+local function onClick(x, y)
+	-- TODO --
+end
+
+while true do
+	redraw()
+	local evt, btn, x, y = os.pullEvent("mouse_click", "mouse_scroll", "key", "wake")
+	if evt == "mouse_click" then
+		if btn == 1 then
+			onClick(x, y)
+		end
+	elseif evt == "mouse_scroll" then
+	elseif evt == "key" then
+	end
+end

@@ -31,11 +31,11 @@ function run(path, env)
 	local func, err = loadfile(path)
 	if func then
 		local name = getName(fs.getName(path))
-		local dispID = display.newDisplay()
+		local dispID = display.new()
 		local pid = proc.createProcess(name, env)
 		local ok, err = proc.createThread(func, pid)
 		if not ok then
-			display.removeDisplay(name)
+			display.remove(name)
 			proc.kill(pid)
 			return false, err
 		end
@@ -67,10 +67,9 @@ function switch(name, ...)
 			proc.stop(tApps[curApp].pid)
 		end
 		proc.resume(tApp.pid)
-		display.setCurrentDisplay(tApp.dispID)
+		display.setCurrent(tApp.dispID)
 		curApp = name
-		local args = {...}
-		if #args > 0 then
+		if #({...}) > 0 then
 			proc.sendEvent(tApp.pid, ...)
 		else
 			proc.sendEvent(tApp.pid, "wake")
@@ -80,7 +79,7 @@ function switch(name, ...)
 	return false
 end
 
-function stop(name)
+function kill(name)
 	name = name or curApp
 	local tApp = tApps[name]
 	if tApp then
@@ -88,7 +87,16 @@ function stop(name)
 			curApp = nil
 		end
 		proc.kill(tApp.pid)
-		display.removeDisplay(tApp.dispID)
+		display.remove(tApp.dispID)
+		tApps[name] = nil
+	end
+end
+
+function stop()
+	if curApp then
+		proc.stop(tApps[curApp].pid)
+		curApp = nil
+		display.setCurrent(0)
 	end
 end
 
@@ -117,7 +125,7 @@ local function onProcessEnd(pid)
 			if curApp == name then
 				curApp = nil
 			end
-			display.removeDisplay(tApp.dispID)
+			display.remove(tApp.dispID)
 			tApps[name] = nil
 			break
 		end

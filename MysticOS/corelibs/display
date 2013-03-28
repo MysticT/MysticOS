@@ -317,7 +317,7 @@ function snapshot()
 	end
 end
 
-function newDisplay()
+function new()
 	local disp = {}
 	local w, h = screen.getSize()
 	disp.img = image.new(w, h - 1)
@@ -327,7 +327,7 @@ function newDisplay()
 	return addDisplay(disp)
 end
 
-function removeDisplay(id)
+function remove(id)
 	tDisplays[id] = nil
 	if id == curDisplay then
 		curDisplay = nil
@@ -335,8 +335,12 @@ function removeDisplay(id)
 	end
 end
 
-function setCurrentDisplay(id)
-	if tDisplays[id] then
+function setCurrent(id)
+	if id == 0 then
+		curDisplay = nil
+		redrawDisplay()
+		return true
+	elseif tDisplays[id] then
 		if id ~= curDisplay then
 			curDisplay = id
 			redrawDisplay()
@@ -346,11 +350,11 @@ function setCurrentDisplay(id)
 	return false
 end
 
-function getCurrentDisplay()
+function getCurrent()
 	return curDisplay
 end
 
-function updateDisplays()
+function update()
 	local w, h = screen.getSize()
 	if w ~= screenW or h ~= screenH then
 		os.queueEvent("resize", w, h)

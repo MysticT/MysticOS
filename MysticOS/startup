@@ -3,6 +3,7 @@
 --[[
 TODO:
 	+ error handling (show error message)
+	+ per-process timers?
 	.APIs:
 		+ peripheral
 --]]
@@ -143,6 +144,10 @@ end
 
 function os.runOnBackground(path)
 	return app.runOnBackground(path, tBackgroundEnv)
+end
+
+function os.killApp(name)
+	return app.kill(name)
 end
 
 function os.switchApp(name)
@@ -353,26 +358,73 @@ end
 
 local screenWidth, screenHeight = screen.getSize()
 
+local function showError(msg)
+	-- TODO --
+	emulog.log(msg)
+end
+
+-- Menus
+
+local function newMenu(path)
+	local ok, name = app.run(path, tMainEnv)
+	if not ok then
+		showError(name)
+		return nil
+	end
+	return name
+end
+
+local bMenuOpen = false
+local prevApp
+
+local function openMenu(name)
+	if not bMenuOpen then
+		prevApp = app.getCurrent()
+		bMenuOpen = true
+	end
+	app.switch(name)
+end
+
+local function closeMenu()
+	if bMenuOpen then
+		if prevApp then
+			app.switch(prevApp)
+		else
+			app.stop()
+		end
+		bMenuOpen = false
+	end
+end
+
+local function switchMenu(name)
+	if app.getCurrent() == name then
+		closeMenu()
+	else
+		openMenu(name)
+	end
+end
+
+local homeMenu = newMenu("/MysticOS/menu/home")
+local tasksMenu = newMenu("/MysticOS/menu/tasks")
+local notifMenu = newMenu("/MysticOS/menu/notif")
+local sysMenu = newMenu("/MysticOS/menu/sysmenu")
+
 -- System Bar Buttons
 
 local function home()
-	os.run("/MysticOS/programs/home")
-	os.queueEvent("run")
+	switchMenu(homeMenu)
 end
 
 local function showTasks()
-	os.run("/MysticOS/programs/tasks")
-	os.queueEvent("run")
+	switchMenu(tasksMenu)
 end
 
 local function showNotifications()
-	os.run("/MysticOS/programs/notif")
-	os.queueEvent("run")
+	switchMenu(notifMenu)
 end
 
 local function systemMenu()
-	os.run("/MysticOS/programs/sysmenu")
-	os.queueEvent("run")
+	switchMenu(sysMenu)
 end
 
 local homeBtn = display.addButton(1, "M", colors.orange, colors.red, home)
@@ -418,13 +470,13 @@ events.addHandler("resize", function(w, h)
 end)
 
 events.addHandler("error", function(pid, tid, err)
-	emulog.log("Error (PID: "..pid.." TID: "..tid.."): "..err) -- DEBUG
-	-- TODO --
+	showError("Error (PID: "..pid.." TID: "..tid.."): "..err)
 end)
 
 events.addHandler("tick_end", function()
 	if bSwitchApp then
 		bSwitchApp = false
+		closeMenu()
 		app.switch(sAppName, unpack(tAppArgs))
 	end
 end)

@@ -1,0 +1,83 @@
+-- MysticOS Tasks Menu
+
+-- TODO: keyboard support
+
+-- Colors
+local backColor = colors.white
+local textColor = colors.black
+local btnBackColor = colors.red
+local btnTxtColor = colors.gray
+
+local nScroll = 0
+
+local function closeApp(i)
+	local apps = os.runningApps()
+	if apps[i] then
+		os.killApp(apps[i].name)
+	end
+end
+
+local function switchApp(i)
+	local apps = os.runningApps()
+	if apps[i] then
+		os.switchApp(apps[i].name)
+	end
+end
+
+local function redraw()
+	graphics.clear(backColor)
+	local apps = os.runningApps()
+	local n = math.min(#apps - nScroll, graphics.getHeight())
+	for y = 1, n do
+		graphics.setBackgroundColor(btnBackColor)
+		graphics.setTextColor(btnTxtColor)
+		graphics.drawChar("x", 1, y)
+		graphics.setBackgroundColor(backColor)
+		graphics.setTextColor(textColor)
+		graphics.write(apps[nScroll + y].name, 2, y)
+	end
+end
+
+local function onClick(x, y)
+	local i = nScroll + y
+	if x == 1 then
+		closeApp(i)
+	else
+		switchApp(i)
+	end
+end
+
+function scrollDown()
+	local apps = os.runningApps()
+	if #apps > graphics.getHeight() and nScroll < #apps then
+		nScroll = nScroll + 1
+	end
+end
+
+function scrollUp()
+	if nScroll > 0 then
+		nScroll = nScroll - 1
+	end
+end
+
+while true do
+	redraw()
+	local evt, btn, x, y = os.pullEvent("mouse_click", "mouse_scroll", "key", "wake")
+	if evt == "mouse_click" then
+		if btn == 1 then
+			onClick(x, y)
+		end
+	elseif evt == "mouse_scroll" then
+		if btn == 1 then
+			scrollDown()
+		else
+			scrollUp()
+		end
+	elseif evt == "key" then
+		if btn == keys.up then
+			scrollUp()
+		elseif btn == keys.down then
+			scrollDown()
+		end
+	end
+end

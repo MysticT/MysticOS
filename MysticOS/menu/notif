@@ -1,5 +1,8 @@
 -- MysticOS Notification Menu
 
+-- TODO: keyboard support
+
+-- Colors
 local backColor = colors.lime
 local textColor = colors.white
 local btnBackColor = colors.red
@@ -9,9 +12,20 @@ local msgTxtColor = colors.red
 
 local nScroll = 0
 
-local function readNotification(notif)
-	-- TODO --
-	gui.message(20, 5, notif.title, notif.msg, msgBackColor, msgTxtColor)
+local function removeNotification(i)
+	local notifications = os.listNotifications()
+	if notifications[i] then
+		os.removeNotification(notifications[i].id)
+	end
+end
+
+local function readNotification(i)
+	local notifications = os.listNotifications()
+	if notifications[i] then
+		local notif = notifications[i]
+		-- TODO --
+		gui.message(20, 5, notif.title, notif.msg, msgBackColor, msgTxtColor)
+	end
 end
 
 local function redraw()
@@ -29,14 +43,11 @@ local function redraw()
 end
 
 local function onClick(x, y)
-	local notifications = os.listNotifications()
 	local i = nScroll + y
-	if i <= #notifications then
-		if x == 1 then
-			os.removeNotification(notifications[i].id)
-		else
-			readNotification(notifications[i])
-		end
+	if x == 1 then
+		removeNotification(i)
+	else
+		readNotification(i)
 	end
 end
 
@@ -55,7 +66,7 @@ end
 
 while true do
 	redraw()
-	local evt, btn, x, y = os.pullEvent("mouse_click", "mouse_scroll", "key")
+	local evt, btn, x, y = os.pullEvent("mouse_click", "mouse_scroll", "key", "wake")
 	if evt == "mouse_click" then
 		if btn == 1 then
 			onClick(x, y)
@@ -67,9 +78,7 @@ while true do
 			scrollUp()
 		end
 	elseif evt == "key" then
-		if btn == keys.Enter then
-			break
-		elseif btn == keys.up then
+		if btn == keys.up then
 			scrollUp()
 		elseif btn == keys.down then
 			scrollDown()
