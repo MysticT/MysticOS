@@ -63,15 +63,14 @@ end
 -- Draw methods
 
 local function drawSystemBar()
-	local useColor = screen.isColor and screen.isColor()
 	-- Background
-	screen.setBackgroundColor(useColor and colors.lightBlue or colors.white)
+	screen.setBackgroundColor(colors.white)
 	screen.setCursorPos(1, 1)
 	screen.write(string.rep(" ", screen.getWidth()))
 	-- Buttons
 	for _,btn in pairs(tButtons) do
-		screen.setBackgroundColour(useColor and btn.bgColor or colors.black)
-		screen.setTextColor(useColor and btn.txtColor or colors.white)
+		screen.setBackgroundColour(btn.bgColor)
+		screen.setTextColor(btn.txtColor)
 		screen.setCursorPos(btn.x, 1)
 		screen.write(btn.text)
 	end

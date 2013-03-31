@@ -3,10 +3,6 @@
 local native = fs
 local tOpenFiles = {}
 
-local function resolvePath(path)
-	return native.combine(path, "")
-end
-
 local function getByte(n, i)
 	return bit.band(bit.brshift(n, i * 8), 0xFF)
 end
@@ -194,6 +190,54 @@ local function writeString(h, s)
 	h.write(0)
 end
 
+local linkHdr = "::LINK::"
+
+local function splitPath(sPath)
+	local i = 1
+	local t = {}
+	sPath = native.combine(sPath, "")
+	for path in string.gmatch(sPath, "[^/\\]*[/\\]?") do
+		path = string.gsub(path, "[/\\]", "")
+		if path == ".." then
+			if i > 1 then
+				i = i - 1
+				t[i] = nil
+			else
+				return nil
+			end
+		elseif path ~= "" and path ~= "." then
+			t[i] = path
+			i = i + 1
+		end
+	end
+	return t
+end
+
+local function resolveLink(path)
+	if native.exists(path) and not native.isDir(path) then
+		local file = native.open(path, "rb")
+		if file then
+			if readString(file, #linkHdr) == linkHdr then
+				path = readString(file)
+			end
+			file.close()
+		end
+	end
+	return path
+end
+
+local function resolvePath(sPath)
+	local t = splitPath(sPath)
+	if t == nil then
+		return nil
+	end
+	local path = ""
+	for i = 1, #t do
+		path = resolveLink(path.."/"..t[i])
+	end
+	return path
+end
+
 local function openHandle(path, mode, pid, handle)
 	tOpenFiles[path] = {
 		mode = mode,
@@ -275,7 +319,7 @@ end
 -- API
 
 function list(path, bIncludeHidden)
-	local l = native.list(path)
+	local l = native.list(resolvePath(path))
 	if not bIncludeHidden then
 		local t = {}
 		for i = 1, #l do
@@ -289,15 +333,15 @@ function list(path, bIncludeHidden)
 end
 
 function exists(path)
-	return native.exists(path)
+	return native.exists(resolvePath(path))
 end
 
 function isDir(path)
-	return native.isDir(path)
+	return native.isDir(resolvePath(path))
 end
 
 function isReadOnly(path)
-	return native.isReadOnly(path)
+	return native.isReadOnly(resolvePath(path))
 end
 
 function getName(path, bRemoveExtension)
@@ -309,35 +353,35 @@ function getName(path, bRemoveExtension)
 end
 
 function getExtension(path)
-	path = resolvePath(path)
-	if string.find(path, "%..+$") then
-		return string.match(path, ".*%.(.+)$")
+	local name = native.getName(path)
+	if string.find(name, "%..+$") then
+		return string.match(name, ".*%.(.+)$")
 	end
 	return ""
 end
 
 function getDrive(path)
-	return native.getDrive(path)
+	return native.getDrive(resolvePath(path))
 end
 
 function getSize(path)
-	return native.getSize(path)
+	return native.getSize(resolvePath(path))
 end
 
 function makeDir(path)
-	return native.makeDir(path)
+	return native.makeDir(resolvePath(path))
 end
 
 function move(srcPath, dstPath)
-	return native.move(path)
+	return native.move(resolvePath(srcPath), resolvePath(dstPath))
 end
 
 function copy(srcPath, dstPath)
-	return native.copy(path)
+	return native.copy(resolvePath(srcPath), resolvePath(dstPath))
 end
 
 function delete(path)
-	return native.delete(path)
+	return native.delete(resolvePath(path))
 end
 
 function combine(basePath, localPath)
@@ -348,8 +392,31 @@ function isOpen(path)
 	return tOpenFiles[resolvePath(path)] ~= nil
 end
 
+function makeLink(linkPath, dstPath)
+	linkPath = resolvePath(linkPath)
+	dstPath = resolvePath(dstPath)
+	if exists(linkPath) or not exists(dstPath) then
+		return false
+	end
+	local file = native.open(linkPath, "wb")
+	if not file then
+		return false
+	end
+	writeBytes(file, linkHdr)
+	writeString(file, dstPath)
+	file.close()
+	return true
+end
+
+function deleteLink(path)
+	-- TODO --
+end
+
 function open(path, mode)
 	path = resolvePath(path)
+	if isOpen(path) then
+		return nil
+	end
 	local handle = native.open(path, mode)
 	if handle then
 		local h = wrap(handle, path, mode)

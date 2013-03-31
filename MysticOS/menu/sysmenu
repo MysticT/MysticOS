@@ -3,14 +3,15 @@
 -- TODO: keyboard support
 
 -- Colors
-local backColor = colors.black
+local backColor = colors.lightGray
 local textColor = colors.white
 
 local nScroll = 0
 local tMenuOptions = {
 	"System Configuration",
 	"Reboot",
-	"Shutdown"
+	"Shutdown",
+	"Test"
 }
 local tMenuActions = {
 
@@ -27,6 +28,9 @@ end,
 	-- TODO: confirmation dialog
 	os.shutdown()
 end,
+["Test"] = function()
+	os.run("/MysticOS/programs/test")
+end
 }
 
 local function doMenuItem(i)
@@ -37,8 +41,9 @@ local function doMenuItem(i)
 end
 
 local function redraw()
-	graphics.clear(backColor)
+	graphics.setBackgroundColor(backColor)
 	graphics.setTextColor(textColor)
+	graphics.clear()
 	local n = math.min(#tMenuOptions - nScroll, graphics.getHeight())
 	for y = 1, n do
 		graphics.write(tMenuOptions[nScroll + y], 1, y)

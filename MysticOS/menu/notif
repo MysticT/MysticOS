@@ -3,7 +3,7 @@
 -- TODO: keyboard support
 
 -- Colors
-local backColor = colors.lime
+local backColor = colors.lightGray
 local textColor = colors.white
 local btnBackColor = colors.red
 local btnTxtColor = colors.gray

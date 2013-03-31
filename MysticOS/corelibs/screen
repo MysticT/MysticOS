@@ -8,6 +8,32 @@ local function getCurrentTarget()
 	return #targets > 0 and targets[#targets] or nativeTerm
 end
 
+local tColorLookup = {
+	[colors.white] = colors.white,
+	[colors.orange] = colors.white,
+	[colors.magenta] = colors.white,
+	[colors.lightBlue] = colors.white,
+	[colors.yellow] = colors.white,
+	[colors.lime] = colors.white,
+	[colors.pink] = colors.white,
+	[colors.gray] = colors.black,
+	[colors.lightGray] = colors.black,
+	[colors.cyan] = colors.white,
+	[colors.purple] = colors.black,
+	[colors.blue] = colors.black,
+	[colors.brown] = colors.black,
+	[colors.green] = colors.black,
+	[colors.red] = colors.black,
+	[colors.black] = colors.black
+}
+
+local function getColor(target, c)
+	if target.isColor and target.isColor() then
+		return c
+	end
+	return tColorLookup[c] or 0
+end
+
 -- Screen API
 
 function write(txt)
@@ -90,6 +116,7 @@ end
 function setTextColor(c)
 	local target = getCurrentTarget()
 	if target and target.setTextColor then
+		c = getColor(target, c)
 		target.setTextColor(c)
 	end
 end
@@ -98,6 +125,7 @@ setTextColour = setTextColor
 function setBackgroundColor(c)
 	local target = getCurrentTarget()
 	if target and target.setBackgroundColor then
+		c = getColor(target, c)
 		target.setBackgroundColor(c)
 	end
 end

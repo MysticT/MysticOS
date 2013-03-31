@@ -97,26 +97,27 @@ function os.reboot()
 	end
 end
 
-function os.loadAPI(path)
+function os.loadAPI(path, name)
 	local env = getfenv(2)
 	local tEnv = {}
 	setmetatable(tEnv, { __index = env })
 	local fnAPI, err = loadfile(path, tEnv)
 	if not fnAPI then
-		return false, err
+		return nil, err
 	end
 	local ok, api = pcall(fnAPI)
 	if not ok then
-		return false, api
+		return nil, api
 	end
-	if not api then
+	if not api or type(api) ~= "table" then
 		api = {}
 		for k, v in pairs(tEnv) do
 			api[k] = v
 		end
 	end
-	env[fs.getName(path, true)] = api
-	return true
+	name = name or fs.getName(path, true)
+	env[name] = api
+	return api
 end
 
 function os.unloadAPI(name)
@@ -354,6 +355,47 @@ function read(sReplaceChar, tHistory, nMax)
 	return sLine
 end
 
+-- Initialize Environments
+
+do
+	-- Load APIs
+	local sApisPath = "/MysticOS/apis"
+	local apis = fs.list(sApisPath)
+	table.sort(apis)
+	for i = 1, #apis do
+		os.loadAPI(fs.combine(sApisPath, apis[i]))
+	end
+	local copy = {
+		-- Global functions
+		"assert", "dofile", "error", "getfenv", "getmetatable", "ipairs", "loadfile",
+		"loadstring", "next", "pairs", "pcall", "rawequal", "rawget", "rawset",
+		"select", "sleep", "setfenv", "setmetatable", "tonumber", "tostring",
+		"type", "unpack", "xpcall", "__inext", "__VERSION",
+		-- APIs
+		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "fs", "keys", "math", "os",
+		"peripheral", "redstone", "rs", "string", "table", "thread",
+		-- DEBUG
+		"emulog"
+	}
+	local main = {
+		-- Global functions
+		"print", "printError", "read", "write",
+		-- APIs
+		"graphics", "gui", "image", "term"
+	}
+	local env = getfenv()
+	for i = 1, #copy do
+		local k = copy[i]
+		tMainEnv[k] = env[k]
+		tBackgroundEnv[k] = env[k]
+	end
+	for i = 1, #main do
+		tMainEnv[main[i]] = env[main[i]]
+	end
+	tMainEnv._G = tMainEnv
+	tBackgroundEnv._G = tBackgroundEnv
+end
+
 -- Screen & Display
 
 local screenWidth, screenHeight = screen.getSize()
@@ -427,8 +469,8 @@ local function systemMenu()
 	switchMenu(sysMenu)
 end
 
-local homeBtn = display.addButton(1, "M", colors.orange, colors.red, home)
-local tasksBtn = display.addButton(2, "T", colors.yellow, colors.red, showTasks)
+local homeBtn = display.addButton(1, "M", colors.purple, colors.lightBlue, home)
+local tasksBtn = display.addButton(2, "T", colors.blue, colors.lime, showTasks)
 local notifBtn = display.addButton(screenWidth - 1, "N", colors.lightGray, colors.gray, showNotifications)
 local systemBtn = display.addButton(screenWidth, "S", colors.blue, colors.white, systemMenu)
 
@@ -483,40 +525,6 @@ end)
 
 events.addHandler("new_notification", updateNotifications)
 events.addHandler("notification_removed", updateNotifications)
-
--- Initialize Environments
-
-do
-	local copy = {
-		-- Global functions
-		"assert", "dofile", "error", "getfenv", "getmetatable", "ipairs", "loadfile",
-		"loadstring", "next", "pairs", "pcall", "rawequal", "rawget", "rawset",
-		"select", "sleep", "setfenv", "setmetatable", "tonumber", "tostring",
-		"type", "unpack", "xpcall", "__inext", "__VERSION",
-		-- APIs
-		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "fs", "keys", "math", "os",
-		"peripheral", "redstone", "rs", "string", "table", "thread",
-		-- DEBUG
-		"emulog"
-	}
-	local main = {
-		-- Global functions
-		"print", "printError", "read", "write",
-		-- APIs
-		"graphics", "gui", "image", "term"
-	}
-	local env = getfenv()
-	for i = 1, #copy do
-		local k = copy[i]
-		tMainEnv[k] = env[k]
-		tBackgroundEnv[k] = env[k]
-	end
-	for i = 1, #main do
-		tMainEnv[main[i]] = env[main[i]]
-	end
-	tMainEnv._G = tMainEnv
-	tBackgroundEnv._G = tBackgroundEnv
-end
 
 -- Initialize libraries
 

@@ -1,7 +1,7 @@
 -- MysticOS Home Menu
 
 -- Colors
-local backColor = colors.black
+local backColor = colors.lightGray
 
 local function redraw()
 	graphics.clear(backColor)
