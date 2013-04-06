@@ -164,7 +164,12 @@ function math.logN(n, base)
 	return math.log(n) / math.log(base)
 end
 
--- Error Handling
+-- Terminal functions
+
+local function clear()
+	term.clear()
+	term.setCursorPos(1, 1)
+end
 
 local function write(sText)
 	sText = tostring(sText)
@@ -252,6 +257,8 @@ end
 -- Load corelibs
 
 local function loadLib(path)
+	local name = fs.getName(path)
+	print("Loading library ", name)
 	local tEnv = {}
 	setmetatable(tEnv, { __index = coreEnv })
 	local fnLib, err = loadfile(path, tEnv)
@@ -268,7 +275,7 @@ local function loadLib(path)
 			lib[k] = v
 		end
 	end
-	coreEnv[fs.getName(path)] = lib
+	coreEnv[name] = lib
 	return true
 end
 
@@ -292,6 +299,8 @@ local function loadCoreLibs(sPath)
 	return true
 end
 
+clear()
+print("Loading core libraries...")
 local ok, err = loadCoreLibs(sLibsPath)
 if not ok then
 	showError("Error loading libraries", err)
@@ -300,6 +309,7 @@ end
 
 -- Startup
 
+print("Loading startup file...")
 local func, err = loadfile(sStartupPath, coreEnv)
 if func then
 	local ok, err = pcall(func)

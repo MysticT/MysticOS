@@ -1,5 +1,7 @@
 -- MysticOS File System
 
+-- TODO: delete() link files
+
 local native = fs
 local tOpenFiles = {}
 
@@ -408,15 +410,12 @@ function makeLink(linkPath, dstPath)
 	return true
 end
 
-function deleteLink(path)
-	-- TODO --
-end
-
 function open(path, mode)
 	path = resolvePath(path)
 	if isOpen(path) then
 		return nil
 	end
+	mode = mode or "r"
 	local handle = native.open(path, mode)
 	if handle then
 		local h = wrap(handle, path, mode)

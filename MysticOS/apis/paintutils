@@ -1,0 +1,68 @@
+-- Paintutils API for MysticOS
+
+local function drawPixelInternal(x, y)
+	graphics.drawChar(" ", x, y)
+end
+
+function loadImage(path)
+	return image.load(path)
+end
+
+function drawPixel(x, y, c)
+	if c then
+		graphics.setBackgroundColor(c)
+	end
+	drawPixelInternal(x, y)
+end
+
+function drawLine(startX, startY, endX, endY, nColor)
+	if nColor then
+		graphics.setBackgroundColor(nColor)
+	end
+	startX = math.floor(startX)
+	startY = math.floor(startY)
+	endX = math.floor(endX)
+	endY = math.floor(endY)
+	if startX == endX and startY == endY then
+		drawPixelInternal(startX, startY)
+		return
+	end
+	local minX = math.min(startX, endX)
+	if minX == startX then
+		minY = startY
+		maxX = endX
+		maxY = endY
+	else
+		minY = endY
+		maxX = startX
+		maxY = startY
+	end
+	local xDiff = maxX - minX
+	local yDiff = maxY - minY
+	if xDiff > math.abs(yDiff) then
+		local y = minY
+		local dy = yDiff / xDiff
+		for x = minX, maxX do
+			drawPixelInternal(x, math.floor(y + 0.5))
+			y = y + dy
+		end
+	else
+		local x = minX
+		local dx = xDiff / yDiff
+		if maxY >= minY then
+			for y = minY, maxY do
+				drawPixelInternal(math.floor(x + 0.5), y)
+				x = x + dx
+			end
+		else
+			for y = minY, maxY, -1 do
+				drawPixelInternal(math.floor(x + 0.5), y)
+				x = x - dx
+			end
+		end
+	end
+end
+
+function drawImage(tImage, x, y)
+	graphics.drawImage(tImage, 0, 0, x, y)
+end

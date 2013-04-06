@@ -1,4 +1,4 @@
--- MysticOS Thread Library
+-- MysticOS Thread API
 
 function new(func)
 	return proc.createThread(func)

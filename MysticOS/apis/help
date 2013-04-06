@@ -1,0 +1,46 @@
+-- Help API
+
+local sPath = "/rom/help"
+
+function path()
+	return sPath
+end
+
+function setPath(_sPath)
+	sPath = _sPath
+end
+
+function lookup(sTopic)
+	-- Look on the path variable
+	for path in string.gmatch(sPath, "[^:]+") do
+		path = fs.combine(path, sTopic)
+		if fs.exists(sPath) and not fs.isDir(sPath) then
+			return sPath
+		end
+	end
+	-- Not found
+	return nil
+end
+
+function topics()
+	local tItems = {}
+	-- Add topics from the path
+	for path in string.gmatch(sPath, "[^:]+") do
+		if fs.isDir(path) then
+			local tList = fs.list(path)
+			for i = 1, #tList do
+				local sFile = tList[i]
+				if not fs.isDir(fs.combine(path, sFile)) then
+					tItems[sFile] = true
+				end
+			end
+		end
+	end
+	-- Sort and return
+	local tItemList = {}
+	for sItem in pairs(tItems) do
+		tItemList[#tItemList + 1] = sItem
+	end
+	table.sort(tItemList)
+	return tItemList
+end

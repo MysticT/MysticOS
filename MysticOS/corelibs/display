@@ -147,7 +147,7 @@ function redrawAll()
 	redraw()
 end
 
-function draw(img, ox, oy, x, y, w, h)
+function drawImage(img, ox, oy, x, y, w, h)
 	local disp = getDisplay()
 	if disp then
 		disp.img:draw(img, ox, oy, x, y, w, h)

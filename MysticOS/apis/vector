@@ -1,0 +1,62 @@
+-- Vector API
+
+local vector = {}
+
+function vector:add(v)
+	return new(self.x + v.x, self.y + v.y, self.z + v.z)
+end
+
+function vector:sub(v)
+	return new(self.x - v.x, self.y - v.y, self.z - v.z)
+end
+
+function vector:mul(n)
+	return new(self.x * n, self.y * n, self.z * n)
+end
+
+function vector:div(n)
+	return new(self.x / n, self.y / n, self.z / n)
+end
+
+function vector:dot(v)
+	return self.x * v.x + self.y * v.y + self.z * v.z
+end
+
+function vector:cross(v)
+	return new(self.y * v.z - self.z * v.y, self.z * v.x - self.x * v.z, self.x * v.y - self.y * v.x)
+end
+
+function vector:length()
+	return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+end
+
+function vector:normalize()
+	return self:div(self:length())
+end
+
+function vector:round()
+	return new(math.floor(self.x + 0.5), math.floor(self.y + 0.5), math.floor(self.z + 0.5))
+end
+
+function vector:tostring()
+	return self.x..","..self.y..","..self.z
+end
+
+local vmetatable = {
+	__index = vector,
+	__add = vector.add,
+	__sub = vector.sub,
+	__mul = vector.mul,
+	__unm = function(v) return v:mul(-1) end,
+	__tostring = vector.tostring
+}
+
+function new(x, y, z)
+	local v = {
+		x = x or 0,
+		y = y or 0,
+		z = z or 0
+	}
+	setmetatable(v, vmetatable)
+	return v
+end

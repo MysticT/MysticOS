@@ -1,0 +1,68 @@
+-- Parallel API
+
+local function create(first, ...)
+	if first ~= nil then
+		return coroutine.create(first), create(...)
+    end
+    return nil
+end
+
+local function checkFilter(sEvt, tFilter)
+	if sEvt == nil or tFilter == nil or #tFilter == 0 then
+		return true
+	end
+	for i = 1, #tFilter do
+		if tFilter[i] == sEvt then
+			return true
+		end
+	end
+	return false
+end
+
+local function runUntilLimit(routines, limit)
+    local count = #routines
+    local living = count
+    local tFilters = {}
+    local tEvt = {}
+    while true do
+    	for n = 1, count do
+    		local r = routines[n]
+    		if r then
+    			if checkFilter(tEvt[1], tFilters[r]) then
+    				local tStatus = { coroutine.resume(routine, unpack(tEvt)) }
+    				if not tStatus[1] then
+    					error(tStatus[2])
+    				end
+    				tFilters[r] = { unpack(tStatus, 2) }
+    				if coroutine.status(routine) == "dead" then
+    					routines[n] = nil
+						living = living - 1
+						if living <= limit then
+							return n
+						end
+    				end
+    			end
+    		end
+    	end
+		for n = 1, count do
+			if routines[n] and coroutine.status(routines[n]) == "dead" then
+				routines[n] = nil
+				living = living - 1
+				if living <= limit then
+					return n
+				end
+			end
+		end
+    	tEvt = { os.pullEvent() }
+    end
+end
+
+function waitForAny(...)
+    local routines = { create(...) }
+    return runUntilLimit(routines, #routines - 1)
+end
+
+function waitForAll(...)
+    local routines = { create(...) }
+	runUntilLimit(routines, 0)
+end

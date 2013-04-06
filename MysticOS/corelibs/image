@@ -66,6 +66,12 @@ function img:render(target, ox, oy)
 end
 
 function img:draw(src, ox, oy, x, y, w, h)
+	ox = ox or 0
+	oy = oy or 0
+	x = x or 1
+	y = y or 1
+	w = w or src.width
+	h = h or src.height
 	if x <= self.width and y <= self.height then
 		local sx, sy = 1, 1
 		if x < 1 then
@@ -348,15 +354,15 @@ end
 
 local function writeHeader(file, tImg)
 	file.writeBytes("MIF")
-	file.writeUByte(tImg.width)
-	file.writeUByte(tImg.height)
+	file.writeUShort(tImg.width)
+	file.writeUShort(tImg.height)
 	file.writeUByte(getColorByte(tImg.curBgColor, tImg.curTxtColor))
 end
 
 local function readHeader(file)
 	if file.readString(3) == "MIF" then
-		local w = file.readUByte()
-		local h = file.readUByte()
+		local w = file.readUShort()
+		local h = file.readUShort()
 		local curColors = file.readUByte()
 		local tImg = {}
 		tImg.width = w

@@ -1,4 +1,4 @@
--- MysticOS Terminal Library
+-- MysticOS Terminal API
 
 local native = term
 local term = {}

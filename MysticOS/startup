@@ -4,8 +4,6 @@
 TODO:
 	+ error handling (show error message)
 	+ per-process timers?
-	.APIs:
-		+ peripheral
 --]]
 
 -- Environments
@@ -40,12 +38,7 @@ function os.pullEventRaw(...)
 end
 
 function os.pullEvent(...)
-	local tEvt = { coroutine.yield(...) }
-	if tEvt[1] == "terminate" then
-		app.stop()
-		return os.pullEvent(...)
-	end
-	return unpack(tEvt)
+	return coroutine.yield(...)
 end
 
 function os.queueEvent(...)
@@ -117,7 +110,7 @@ function os.loadAPI(path, name)
 	end
 	name = name or fs.getName(path, true)
 	env[name] = api
-	return api
+	return api, name
 end
 
 function os.unloadAPI(name)
@@ -359,10 +352,12 @@ end
 
 do
 	-- Load APIs
+	print("Loading APIs...")
 	local sApisPath = "/MysticOS/apis"
 	local apis = fs.list(sApisPath)
 	table.sort(apis)
 	for i = 1, #apis do
+		print("Loading "..apis[i].." API...")
 		os.loadAPI(fs.combine(sApisPath, apis[i]))
 	end
 	local copy = {
@@ -372,8 +367,9 @@ do
 		"select", "sleep", "setfenv", "setmetatable", "tonumber", "tostring",
 		"type", "unpack", "xpcall", "__inext", "__VERSION",
 		-- APIs
-		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "fs", "keys", "math", "os",
-		"peripheral", "redstone", "rs", "string", "table", "thread",
+		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "disk", "fs", "gps",
+		"help", "io", "keys", "math", "os", "paintutils", "parallel", "peripheral",
+		"redstone", "rednet", "rs", "string", "table", "textutils", "thread", "vector",
 		-- DEBUG
 		"emulog"
 	}
@@ -429,9 +425,7 @@ end
 
 local function closeMenu()
 	if bMenuOpen then
-		if prevApp then
-			app.switch(prevApp)
-		else
+		if not prevApp or not app.switch(prevApp) then
 			app.stop()
 		end
 		bMenuOpen = false
@@ -485,6 +479,10 @@ local function updateNotifications()
 end
 
 -- Event handlers
+
+events.addHandler("terminate", function()
+	app.kill()
+end)
 
 events.addHandler("key", function(key)
 	if key == keys.f9 then

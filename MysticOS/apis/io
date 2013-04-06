@@ -1,0 +1,109 @@
+-- IO API
+
+local _read = read
+local _write = write
+local _type = type
+
+function read(sFormat)
+	assert(not sFormat or sFormat == "*l", "Unsupported format", 2)
+	return _read()
+end
+
+function write(sText)
+	_write(sText)
+end
+
+function type(handle)
+	if _type(handle) == "table" and handle.bFileHandle == true then
+		if handle.bClosed then
+			return "closed file"
+		else
+			return "file"
+		end
+	end
+	return nil
+end
+
+function open(path, mode)
+	mode = mode or "r"
+	local file = fs.open(path, mode)
+	if not file then
+		return nil
+	end
+	if mode == "r" then
+		return {
+			bFileHandle = true,
+			bClosed = false,				
+			close = function(self)
+				file.close()
+				self.bClosed = true
+			end,
+			read = function(self, sFormat)
+				sFormat = sFormat or "*l"
+				if sFormat == "*l" then
+					return file.readLine()
+				elseif sFormat == "*a" then
+					return file.readAll()
+				else
+					error( "Unsupported format" )
+				end
+				return nil
+			end,
+			lines = function(self)
+				return function()
+					local sLine = file.readLine()
+					if sLine == nil then
+						file.close()
+						self.bClosed = true
+					end
+					return sLine
+				end
+			end
+		}
+	elseif mode == "w" or mode == "a" then
+		return {
+			bFileHandle = true,
+			bClosed = false,
+			close = function(self)
+				file.close()
+				self.bClosed = true
+			end,
+			write = function(self, sText)
+				file.write(sText)
+			end,
+			flush = function(self)
+				file.flush()
+			end
+		}
+	elseif sMode == "rb" then
+		return {
+			bFileHandle = true,
+			bClosed = false,
+			close = function(self)
+				file.close()
+				self.bClosed = true
+			end,
+			read = function(self)
+				return file.read()
+			end
+		}
+	elseif sMode == "wb" or sMode == "ab" then
+		return {
+			bFileHandle = true,
+			bClosed = false,
+			close = function(self)
+				file.close()
+				self.bClosed = true
+			end,
+			write = function(self, n)
+				file.write(n)
+			end,
+			flush = function(self)
+				file.flush()
+			end
+		}
+	else
+		file.close()
+		error("Unsupported mode")
+	end
+end

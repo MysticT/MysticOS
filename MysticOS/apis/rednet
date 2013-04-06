@@ -1,0 +1,134 @@
+-- Rednet API
+
+CHANNEL_BROADCAST = 65535
+
+local tValidSides = {}
+for _,side in ipairs(rs.getSides()) do
+	tValidSides[side] = true
+end
+
+local function hasFrequencies(side)
+	if peripheral.getType(side) == "modem" then
+		local methods = peripheral.getMethods(side)
+		for i = 1, #methods do
+			if methods[i] == "transmit" then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function modemOpen(side)
+	if hasFrequencies(side) then
+		peripheral.call(side, "open", os.getComputerID())
+		peripheral.call(side, "open", CHANNEL_BROADCAST)
+	else
+		peripheral.call(side, "open")
+	end
+end
+
+local function modemClose(side)
+	if hasFrequencies(side) then
+		peripheral.call(side, "close", os.getComputerID())
+		peripheral.call(side, "close", CHANNEL_BROADCAST)
+	else
+		peripheral.call(side, "close")
+	end
+end
+
+local function isModemOpen(side)
+	if hasFrequencies(side) then
+		return peripheral.call(side, "isOpen", os.getComputerID()) and peripheral.call(side, "isOpen", CHANNEL_BROADCAST)
+	else
+		return peripheral.call(side, "isOpen")
+	end
+end
+
+local function modemSend(side, id, msg)
+	if isOpen(side) then
+		if hasFrequencies(side) then
+			peripheral.call(side, "transmit", id, os.getComputerID(), msg)
+		else
+			peripheral.call(side, "send", id, msg)
+		end
+		return true
+	end
+	return false
+end
+
+local function modemBroadcast(side, msg)
+	if isOpen(side) then
+		if hasFrequencies(side) then
+			peripheral.call(side, "transmit", CHANNEL_BROADCAST, os.getComputerID(), msg)
+		else
+			peripheral.call(side, "broadcast", msg)
+		end
+		return true
+	end
+	return false
+end
+
+-- API
+
+function open(side)
+	checkType(side, "string")
+	assert(tValidSides[side], "Invalid side", 2)
+	assert(peripheral.getType(side) == "modem", "No modem on "..side.." side", 2)
+	modemOpen(side)
+end
+
+function close(side)
+	checkType(side, "string")
+	assert(tValidSides[side], "Invalid side", 2)
+	assert(peripheral.getType(side) == "modem", "No modem on "..side.." side", 2)
+	modemClose(side)
+end
+
+function isOpen(side)
+	checkType(side, "string")
+	assert(tValidSides[side], "Invalid side", 2)
+	if peripheral.getType(side) == "modem" then
+		return isModemOpen(side)
+	end
+	return false
+end
+
+function send(id, msg)
+	for _,side in ipairs(rs.getSides()) do
+		if modemSend(side, id, msg) then
+			return true
+		end
+	end
+	return false
+end
+
+function broadcast(msg)
+	for _,side in ipairs(rs.getSides()) do
+		if modemBroadcast(side, msg) then
+			return true
+		end
+	end
+	return false
+end
+
+function receive(nTimeout)
+	local timer = nil
+	if nTimeout then
+		timer = os.startTimer(nTimeout)
+	end
+	while true do
+		local e, p1, p2, p3 = os.pullEvent("rednet_message", "timer")
+		if e == "rednet_message" then
+			return p1, p2, p3
+		elseif e == "timer" and p1 == timer then
+			return nil
+		end
+	end
+end
+
+events.addHandler("modem_message", function(side, channel, replyChannel, msg, distance)
+	if isOpen(side) and (channel == os.getComputerID() or channel == CHANNEL_BROADCAST) then
+		os.queueEvent("rednet_message", replyChannel, msg, distance)
+	end
+end)

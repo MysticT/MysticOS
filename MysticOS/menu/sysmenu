@@ -10,8 +10,7 @@ local nScroll = 0
 local tMenuOptions = {
 	"System Configuration",
 	"Reboot",
-	"Shutdown",
-	"Test"
+	"Shutdown"
 }
 local tMenuActions = {
 
@@ -27,9 +26,6 @@ end,
 ["Shutdown"] = function()
 	-- TODO: confirmation dialog
 	os.shutdown()
-end,
-["Test"] = function()
-	os.run("/MysticOS/programs/test")
 end
 }
 

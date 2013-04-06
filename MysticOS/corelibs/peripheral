@@ -1,0 +1,100 @@
+-- MysticOS Peripheral Library
+
+local native = peripheral
+
+local function hasMethod(side, method)
+	local methods = native.getMethods(side)
+	for i = 1, #methods do
+		if methods[i] == method then
+			return true
+		end
+	end
+	return false
+end
+
+local function isWiredModem(side)
+	if not native.isPresent(side) or native.getType(side) ~= "modem" then
+		return false
+	end
+	if hasMethod(side, "isWireless") then
+		return not native.call(side, "isWireless")
+	end
+	return false
+end
+
+local function isPresentRemote(side, name)
+	return isWiredModem(side) and native.call(side, "isPresentRemote", name)
+end
+
+local function callRemote(method, name, ...)
+	for _,side in ipairs(rs.getSides()) do
+		if isPresentRemote(side, name) then
+			return native.call(side, method, name, ...)
+		end
+	end
+end
+
+-- API
+
+function getNames()
+	local tNames = {}
+	for _,side in ipairs(rs.getSides()) do
+		if native.isPresent(side) then
+			tNames[#tNames + 1] = side
+			if isWiredModem(side) then
+				local tRemote = native.call(side, "getNamesRemote")
+				for _,name in ipairs(tRemote) do
+					tNames[#tNames + 1] = name
+				end
+			end
+		end
+	end
+	return tNames
+end
+
+function isPresent(name)
+	if native.isPresent(name) then
+		return true
+	end
+	for _,side in ipairs(rs.getSides()) do
+		if isPresentRemote(side, name) then
+			return true
+		end
+	end
+	return false
+end
+
+function getType(name)
+	if native.isPresent(name) then
+		return native.getType(name)
+	end
+	return callRemote("getTypeRemote", name)
+end
+
+function getMethods(name)
+	if native.isPresent(name) then
+		return native.getMethods(name)
+	end
+	return callRemote("getMethodsRemote", name)
+end
+
+function call(name, method, ...)
+	if native.isPresent(name) then
+		return native.call(name, method, ...)
+	end
+	return callRemote("callRemote", name, method, ...)
+end
+
+function wrap(name)
+	if isPresent(name) then
+		local tMethods = getMethods(name)
+		local periph = {}
+		for i = 1, #tMethods do
+			periph[tMethods[i]] = function(...)
+				return call(name, tMethods[i], ...)
+			end
+		end
+		return periph
+	end
+	return nil
+end

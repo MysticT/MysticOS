@@ -1,6 +1,6 @@
--- MysticOS Graphics Library
+-- MysticOS Graphics API
 
-function draw(img, ox, oy, x, y, w, h)
+function drawImage(img, ox, oy, x, y, w, h)
 	display.draw(img, ox, oy, x, y, w, h)
 end
 

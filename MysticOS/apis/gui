@@ -1,4 +1,4 @@
--- MysticOS GUI Library
+-- MysticOS GUI API
 
 --[[
 TODO:
@@ -209,7 +209,7 @@ function Control:print(sText, x, y)
 end
 
 function Control:render()
-	display.draw(self.buff, 0, 0, self.x, self.y, self.buff:getWidth(), self.buff:getHeight())
+	display.drawImage(self.buff, 0, 0, self.x, self.y, self.buff:getWidth(), self.buff:getHeight())
 end
 
 function control(x, y, z, w, h)
