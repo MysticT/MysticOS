@@ -1,7 +1,7 @@
 -- MysticOS Graphics API
 
-function drawImage(img, ox, oy, x, y, w, h)
-	display.draw(img, ox, oy, x, y, w, h)
+function drawImage(img, x, y, w, h, ox, oy)
+	display.draw(img, x, y, w, h, ox, oy)
 end
 
 function write(txt, x, y)
@@ -30,6 +30,10 @@ end
 
 function setCursorBlink(b)
 	display.setCursorPos(b)
+end
+
+function getCursorBlink()
+	return display.getCursorBlink()
 end
 
 function getSize()

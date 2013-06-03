@@ -1,0 +1,122 @@
+-- MysticOS System Menu
+
+local nSelected
+local nScroll
+local screenH
+local tOptions = { "Settings", "Reboot", "Shutdown" }
+
+local function redraw()
+	local bgColor = display.getDesktopBgColor()
+	local txtColor = display.getDesktopTxtColor()
+	display.setBackgroundColor(bgColor)
+	display.clear()
+	for y = 1, math.min(#tOptions, screenH) do
+		if y + nScroll == nSelected then
+			display.setBackgroundColor(txtColor)
+			display.setTextColor(bgColor)
+			display.clearLine(y)
+		else
+			display.setBackgroundColor(bgColor)
+			display.setTextColor(txtColor)
+		end
+		display.write(tOptions[y + nScroll], 1, y)
+	end
+end
+
+local function setSelected(n)
+	if n ~= nSelected and n > 0 and n <= #tOptions then
+		nSelected = n
+		if nSelected - nScroll > screenH then
+			nScroll = nSelected - screenH
+		elseif nSelected - nScroll < 1 then
+			nScroll = nSelected - 1
+		end
+		redraw()
+	end
+end
+
+local function next()
+	if nSelected < #tOptions then
+		setSelected(nSelected + 1)
+	else
+		setSelected(1)
+	end
+end
+
+local function prev()
+	if nSelected > 1 then
+		setSelected(nSelected - 1)
+	else
+		setSelected(#tOptions)
+	end
+end
+
+local function scroll(n)
+	local i = math.max(math.min(nScroll + n, #tOptions - screenH), 0)
+	if i ~= nScroll then
+		nScroll = i
+		redraw()
+	end
+end
+
+local function open()
+	nSelected = 1
+	nScroll = 0
+	screenH = display.getHeight()
+	redraw()
+end
+
+local function doMenuItem()
+	if nSelected == 1 then
+		-- Settings
+		-- TODO --
+	elseif nSelected == 2 then
+		-- Reboot
+		os.reboot()
+	elseif nSelected == 3 then
+		-- Shutdown
+		os.shutdown()
+	end
+end
+
+local function onKeyPress(key)
+	if key == keys.down then
+		next()
+	elseif key == keys.up then
+		prev()
+	elseif key == keys["end"] then
+		setSelected(#tApps)
+	elseif key == keys.home then
+		setSelected(1)
+	elseif key == keys.enter then
+		doMenuItem()
+	end
+end
+
+local function onMouseClick(btn, x, y)
+	y = y + nScroll
+	if btn == 1 and y <= #tOptions then
+		if y == nSelected then
+			doMenuItem()
+		else
+			setSelected(y)
+		end
+	end
+end
+
+local function onMouseScroll(dir, x, y)
+	scroll(dir)
+end
+
+while true do
+	local evt, p1, p2, p3 = os.pullEvent()
+	if evt == "open" then
+		open()
+	elseif evt == "key" then
+		onKeyPress(p1)
+	elseif evt == "mouse_click" then
+		onMouseClick(p1, p2, p3)
+	elseif evt == "mouse_scroll" then
+		onMouseScroll(p1, p2, p3)
+	end
+end

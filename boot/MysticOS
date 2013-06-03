@@ -1,35 +1,80 @@
 -- MysticCore
 
--- TODO: getfenv, setfenv
-
 __VERSION = "MysticCore 0.2"
 
-local sLibsPath = "MysticOS/corelibs"
-local sStartupPath = "MysticOS/startup"
+local sLibsPath = "system/corelibs"
+local sStartupPath = "system/startup"
+
+-- Yield function
+
+local lastYield = os.clock()
+local function yield()
+	if os.clock() - lastYield >= 1 then
+		os.queueEvent("_yield_")
+		coroutine.yield("_yield_")
+		lastYield = os.clock()
+	end
+end
 
 -- Load functions
 
-function loadfile(sPath, tEnv)
-	local file = fs.open(sPath, "rb")
-	if file then
-		local sCode = ""
-		local b = file.read()
-		while b do
-			sCode = sCode..string.char(b)
-			b = file.read()
+local tLuaHeader = { 0x1B, 0x4C, 0x75, 0x61, 0x51 }
+local sLuaHeader = string.char(unpack(tLuaHeader))
+
+local function checkLuaHeader(h)
+	for i = 1, #tLuaHeader do
+		if h.read() ~= tLuaHeader[i] then
+			return false
 		end
-		file.close()
-		local func, err = loadstring(sCode, fs.getName(sPath))
-		if func and tEnv then
-			setfenv(func, tEnv)
-		end
-		return func, err
 	end
-	return nil, "File "..sPath.." not found."
+	return true
 end
 
-function dofile(sFileName, tEnv)
-	local fnFile, err = loadfile(sPath, tEnv or getfenv(2)) -- TODO
+local function loadBinFile(h)
+	local sCode = sLuaHeader
+	local b = h.read()
+	while b do
+		sCode = sCode..string.char(b)
+		b = h.read()
+		yield()
+	end
+	return sCode
+end
+
+local function loadTxtFile(sPath)
+	local file = fs.open(sPath, "r")
+	if file then
+		local sCode = file.readAll()
+		file.close()
+		return sCode
+	end
+end
+
+function loadfile(sPath, tEnv)
+	local file = fs.open(sPath, "rb")
+	if not file then
+		return nil, "File "..sPath.." not found."
+	end
+	local sCode
+	if checkLuaHeader(file) then
+		sCode = loadBinFile(file)
+		file.close()
+	else
+		file.close()
+		sCode = loadTxtFile(sPath)
+		if not sCode then
+			return nil, "Error opening file "..sPath
+		end
+	end
+	local func, err = loadstring(sCode, fs.getName(sPath))
+	if func then
+		setfenv(func, tEnv or getfenv(2))
+	end
+	return func, err
+end
+
+function dofile(sPath, tEnv)
+	local fnFile, err = loadfile(sPath, tEnv)
 	if fnFile then
 		return fnFile()
 	end
@@ -40,7 +85,7 @@ end
 
 function assert(condition, msg, level)
 	if not condition then
-		error(msg, (tonumber(level) + 1) or 2)
+		error(msg, (tonumber(level) or 1) + 1)
 	end
 	return condition
 end
@@ -258,7 +303,7 @@ end
 
 local function loadLib(path)
 	local name = fs.getName(path)
-	print("Loading library ", name)
+	print("Loading ", name, " library")
 	local tEnv = {}
 	setmetatable(tEnv, { __index = coreEnv })
 	local fnLib, err = loadfile(path, tEnv)

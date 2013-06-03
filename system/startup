@@ -1,15 +1,6 @@
 -- MysticOS Startup
 
---[[
-TODO:
-	+ error handling (show error message)
-	+ per-process timers?
---]]
-
--- Environments
-
-local tMainEnv = {}
-local tBackgroundEnv = {}
+local tEnv = {}
 
 -- OS API
 
@@ -33,13 +24,14 @@ function os.getComputerLabel()
 	return nativeOS.getComputerLabel()
 end
 
-function os.pullEventRaw(...)
-	return coroutine.yield(...)
+function os.setComputerLabel(label)
+	nativeOS.setComputerLabel(label)
 end
 
 function os.pullEvent(...)
 	return coroutine.yield(...)
 end
+os.pullEventRaw = os.pullEvent
 
 function os.queueEvent(...)
 	return nativeOS.queueEvent(...)
@@ -120,61 +112,58 @@ function os.unloadAPI(name)
 	end
 end
 
-local bSwitchApp = false
-local sAppName
-local tAppArgs
+function os.run(env, path, ...)
+	local func, err = loadfile(path, env)
+	if not func then
+		return false, err
+	end
+	return pcall(func, ...)
+end
 
-function os.run(path, ...)
-	local ok, name = app.run(path, tMainEnv)
+local tAppQueue = {}
+
+function os.runApp(env, path, ...)
+	local ok, name = app.start(env or tEnv, path)
 	if not ok then
 		return false, name
 	end
-	-- TODO: check if there's another app waiting to start
-	bSwitchApp = true
-	sAppName = name
-	tAppArgs = { ... }
+	tAppQueue[#tAppQueue + 1] = {
+		name = name,
+		args = {...}
+	}
 	return true
 end
 
-function os.runOnBackground(path)
-	return app.runOnBackground(path, tBackgroundEnv)
-end
-
-function os.killApp(name)
-	return app.kill(name)
-end
-
-function os.switchApp(name)
-	if app.isValid(name) then
-		bSwitchApp = true
-		sAppName = name
-		tAppArgs = {}
-		return true
+function os.runOnBackground(env, path)
+	-- TODO: arguments?
+	path = fs.resolvePath(path, true)
+	local func, err = loadfile(path, env or tEnv)
+	if not func then
+		return false, err
 	end
-	return false
-end
-
-function os.runningApps()
-	return app.list()
-end
-
-function os.addNotification(title, msg)
-	return notifications.add(title, msg)
-end
-
-function os.removeNotification(id)
-	notifications.remove(id)
-end
-
-function os.getNotification(id)
-	return notifications.get(id)
-end
-
-function os.listNotifications()
-	return notifications.list()
+	local pid = proc.createProcess(path, env)
+	local ok, err = proc.createThread(func, pid)
+	if not ok then
+		proc.kill(pid)
+		return false, err
+	end
+	return true
 end
 
 -- Global functions
+
+local _loadfile = loadfile
+function loadfile(path, env)
+	return _loadfile(fs.resolvePath(path, true), env)
+end
+
+function dofile(path, env)
+	local fnFile, err = loadfile(path, env)
+	if fnFile then
+		return fnFile()
+	end
+	error(err, 2)
+end
 
 function sleep(nTime)
 	os.sleep(nTime)
@@ -348,190 +337,120 @@ function read(sReplaceChar, tHistory, nMax)
 	return sLine
 end
 
--- Initialize Environments
+-- Initialize libraries
+
+fs.init()
+display.init()
+app.init()
+menu.init()
+
+-- Initialize Environment
 
 do
-	-- Load APIs
-	print("Loading APIs...")
-	local sApisPath = "/MysticOS/apis"
-	local apis = fs.list(sApisPath)
-	table.sort(apis)
-	for i = 1, #apis do
-		print("Loading "..apis[i].." API...")
-		os.loadAPI(fs.combine(sApisPath, apis[i]))
-	end
 	local copy = {
 		-- Global functions
 		"assert", "dofile", "error", "getfenv", "getmetatable", "ipairs", "loadfile",
-		"loadstring", "next", "pairs", "pcall", "rawequal", "rawget", "rawset",
-		"select", "sleep", "setfenv", "setmetatable", "tonumber", "tostring",
-		"type", "unpack", "xpcall", "__inext", "__VERSION",
+		"loadstring", "next", "pairs", "pcall", "print", "printError", "rawequal",
+		"rawget", "rawset", "read", "select", "sleep", "setfenv", "setmetatable",
+		"tonumber", "tostring", "type", "unpack", "write", "xpcall", "__inext", "__VERSION",
 		-- APIs
-		"bit", "bit32", "colors", "colours", "coroutine", "crypto", "disk", "fs", "gps",
-		"help", "io", "keys", "math", "os", "paintutils", "parallel", "peripheral",
-		"redstone", "rednet", "rs", "string", "table", "textutils", "thread", "vector",
-		-- DEBUG
-		"emulog"
+		"bit", "bit32", "colors", "coroutine", "crypto", "fs", "image", "keys", "math",
+		"os", "peripheral", "redstone", "rs", "string", "table"
 	}
-	local main = {
-		-- Global functions
-		"print", "printError", "read", "write",
-		-- APIs
-		"graphics", "gui", "image", "term"
-	}
+	-- Load APIs
+	local sApisPath = "/system/apis"
+	local apis = fs.list(sApisPath)
+	table.sort(apis)
+	for i = 1, #apis do
+		local ok, name = os.loadAPI(fs.combine(sApisPath, apis[i]))
+		if ok then
+			copy[#copy + 1] = name
+		end
+	end
 	local env = getfenv()
 	for i = 1, #copy do
 		local k = copy[i]
-		tMainEnv[k] = env[k]
-		tBackgroundEnv[k] = env[k]
+		tEnv[k] = env[k]
 	end
-	for i = 1, #main do
-		tMainEnv[main[i]] = env[main[i]]
-	end
-	tMainEnv._G = tMainEnv
-	tBackgroundEnv._G = tBackgroundEnv
+	tEnv._G = tEnv
 end
 
 -- Screen & Display
 
-local screenWidth, screenHeight = screen.getSize()
-
 local function showError(msg)
 	-- TODO --
-	emulog.log(msg)
 end
 
--- Menus
+-- System Menus
 
 local function newMenu(path)
-	local ok, name = app.run(path, tMainEnv)
+	local ok, id = menu.new(getfenv(), path)
 	if not ok then
-		showError(name)
-		return nil
+		showError(id)
 	end
-	return name
+	return id
 end
 
-local bMenuOpen = false
-local prevApp
-
-local function openMenu(name)
-	if not bMenuOpen then
-		prevApp = app.getCurrent()
-		bMenuOpen = true
-	end
-	app.switch(name)
-end
-
-local function closeMenu()
-	if bMenuOpen then
-		if not prevApp or not app.switch(prevApp) then
-			app.stop()
-		end
-		bMenuOpen = false
-	end
-end
-
-local function switchMenu(name)
-	if app.getCurrent() == name then
-		closeMenu()
+local function openMenu(id)
+	if menu.isOpen(id) then
+		menu.close()
 	else
-		openMenu(name)
+		menu.open(id)
 	end
 end
 
-local homeMenu = newMenu("/MysticOS/menu/home")
-local tasksMenu = newMenu("/MysticOS/menu/tasks")
-local notifMenu = newMenu("/MysticOS/menu/notif")
-local sysMenu = newMenu("/MysticOS/menu/sysmenu")
-
--- System Bar Buttons
-
-local function home()
-	switchMenu(homeMenu)
-end
-
-local function showTasks()
-	switchMenu(tasksMenu)
-end
-
-local function showNotifications()
-	switchMenu(notifMenu)
-end
-
-local function systemMenu()
-	switchMenu(sysMenu)
-end
-
-local homeBtn = display.addButton(1, "M", colors.purple, colors.lightBlue, home)
-local tasksBtn = display.addButton(2, "T", colors.blue, colors.lime, showTasks)
-local notifBtn = display.addButton(screenWidth - 1, "N", colors.lightGray, colors.gray, showNotifications)
-local systemBtn = display.addButton(screenWidth, "S", colors.blue, colors.white, systemMenu)
-
-local function updateNotifications()
-	if notifications.pending() then
-		notifBtn:setBackgroundColor(colors.lime)
-		notifBtn:setTextColor(colors.lightBlue)
-	else
-		notifBtn:setBackgroundColor(colors.lightGray)
-		notifBtn:setTextColor(colors.gray)
-	end
-end
+local launcherMenu = newMenu("/system/menus/launcher")
+local switcherMenu = newMenu("/system/menus/switcher")
+local systemMenu = newMenu("/system/menus/system")
 
 -- Event handlers
 
 events.addHandler("terminate", function()
 	app.kill()
-end)
-
-events.addHandler("key", function(key)
-	if key == keys.f9 then
-		-- Home
-		home()
-	elseif key == keys.f10 then
-		-- Tasks
-		showTasks()
-	elseif key == keys.f11 then
-		-- Notifications
-		showNotifications()
-	elseif key == keys.f12 then
-		-- System menu
-		systemMenu()
-	else
-		return false
-	end
 	return true
-end)
-
-events.addHandler("resize", function(w, h)
-	screenWidth, screenHeight = w, h
-	notifBtn:setPos(screenWidth - 1)
-	systemBtn:setPos(screenWidth)
 end)
 
 events.addHandler("error", function(pid, tid, err)
 	showError("Error (PID: "..pid.." TID: "..tid.."): "..err)
 end)
 
-events.addHandler("tick_end", function()
-	if bSwitchApp then
-		bSwitchApp = false
-		closeMenu()
-		app.switch(sAppName, unpack(tAppArgs))
+events.addHandler("process_update", function()
+	local n = #tAppQueue
+	if n > 0 then
+		app.switch(tAppQueue[n].name) -- TODO: switch to last successfull app?
+		for i = 1, n do
+			local tApp = tAppQueue[i]
+			app.run(tApp.name, unpack(tApp.args))
+		end
+		table.clear(tAppQueue)
 	end
 end)
 
-events.addHandler("new_notification", updateNotifications)
-events.addHandler("notification_removed", updateNotifications)
+events.addHandler("key", function(key)
+	if key == keys.f10 then -- App Switcher
+		openMenu(switcherMenu)
+	elseif key == keys.f11 then -- Launcher
+		openMenu(launcherMenu)
+	elseif key == keys.f12 then -- System Menu
+		openMenu(systemMenu)
+	else
+		events.dispatch("user_input", "key", key)
+	end
+	return true
+end)
 
--- Initialize libraries
+do
+	local tUserInput = { "char", "mouse_click", "mouse_drag", "mouse_scroll" }
+	for i = 1, #tUserInput do
+		local evt = tUserInput[i]
+		events.addHandler(evt, function(...)
+			events.dispatch("user_input", evt, ...)
+			return true
+		end)
+	end
+end
 
-display.init()
-app.init()
-fs.init()
-
--- Initial render
-display.redrawAll()
+display.redraw()
 
 -- Start running
 system.run()

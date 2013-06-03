@@ -1,0 +1,133 @@
+-- MysticOS Menu Manager Library
+
+local tMenus = {}
+local lastID = 0
+local curMenu
+local prevApp
+
+local function addMenu(name, path, pid, dispID)
+	lastID = lastID + 1
+	tMenus[lastID] = {
+		name = name,
+		path = path,
+		pid = pid,
+		dispID = dispID
+	}
+	return lastID
+end
+
+local function removeMenu(id)
+	local tMenu = tMenus[id]
+	if tMenu then
+		display.remove(tMenu.dispID)
+		tMenus[id] = nil
+		if id == curMenu then
+			close()
+		end
+	end
+end
+
+local function closeMenu()
+	display.setFront(0)
+	curMenu = nil
+end
+
+-- API
+
+function new(env, path, name)
+	path = fs.resolvePath(path, true)
+	local func, err = loadfile(path, env)
+	if not func then
+		return false, err
+	end
+	name = name or fs.getName(path)
+	local pid = proc.createProcess(name, env)
+	local ok, err = proc.createThread(func, pid)
+	if not ok then
+		proc.kill(pid)
+		return false, err
+	end
+	local dispID = display.new(pid)
+	return true, addMenu(name, path, pid, dispID)
+end
+
+function open(id)
+	local tMenu = tMenus[id]
+	if tMenu then
+		if curMenu then
+			closeMenu()
+		else
+			prevApp = app.getCurrent()
+			if prevApp then
+				app.switch(0)
+			end
+		end
+		curMenu = id
+		display.setFront(tMenu.dispID)
+		display.setCurrent(tMenu.dispID)
+		proc.sendEvent(tMenu.pid, "open")
+	end
+end
+
+function close()
+	if curMenu then
+		closeMenu()
+		if prevApp then
+			app.switch(prevApp)
+			prevApp = nil
+		end
+	end
+end
+
+function isOpen(id)
+	if id then
+		return curMenu == id
+	end
+	return curMenu ~= nil
+end
+
+function getCurrent()
+	return curMenu
+end
+
+-- Event Handlers
+
+local function onProcessEnd(pid)
+	for id, tMenu in pairs(tMenus) do
+		if tMenu.pid == pid then
+			removeMenu(id)
+			break
+		end
+	end
+end
+
+local function onProcessRun(pid)
+	if curMenu then
+		local tMenu = tMenus[curMenu]
+		if tMenu and tMenu.pid == pid then
+			display.setCurrent(tMenu.dispID)
+		end
+	end
+end
+
+local function onUserInput(evt, ...)
+	if curMenu then
+		local tMenu = tMenus[curMenu]
+		if tMenu then
+			display.setCurrent(tMenu.dispID)
+			proc.sendEvent(tMenu.pid, evt, ...)
+			return true
+		end
+	end
+end
+
+local bInit = false
+function init()
+	if not bInit then
+		-- Event Handlers
+		events.addHandler("process_end", onProcessEnd)
+		events.addHandler("process_run", onProcessRun)
+		events.addHandler("user_input", onUserInput)
+		bInit = true
+	end
+end

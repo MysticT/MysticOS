@@ -1,0 +1,634 @@
+-- MysticOS Display Library
+
+local tDisplays = {}
+local frontDisplay
+local curDisplay
+local lastID = 0
+local screenW, screenH
+
+local bRedraw = false
+local nRedrawDelay = 0.1
+local redrawTimer
+
+BG_COLOR = 1
+BG_IMAGE = 2
+
+local bgType = BG_COLOR
+local desktopBgColor = colors.blue
+local desktopTxtColor = colors.white
+local desktopImage
+
+local function getDisplay()
+	return curDisplay and tDisplays[curDisplay]
+end
+
+local function getFrontDisplay()
+	return frontDisplay and tDisplays[frontDisplay]
+end
+
+local function addDisplay(disp)
+	lastID = lastID + 1
+	tDisplays[lastID] = disp
+	return lastID
+end
+
+-- Draw methods
+
+local function renderLine(disp, y)
+	screen.setCursorPos(1, y)
+	local i = 1
+	local txt = disp.text[y]
+	local sBgColor = disp.bgColor[y]
+	local sTxtColor = disp.txtColor[y]
+	while i <= disp.width do
+		local bgColor = colors.fromString(sBgColor, i)
+		local txtColor = colors.fromString(sTxtColor, i)
+		j = i
+		i = i + 1
+		while i <= disp.width and bgColor == colors.fromString(sBgColor, i) and
+				txtColor == colors.fromString(sTxtColor, i) do
+			i = i + 1
+		end
+		screen.setBackgroundColor(bgColor)
+		screen.setTextColor(txtColor)
+		screen.write(string.sub(txt, j, i - 1))
+	end
+end
+
+local function renderDisplay(disp)
+	for y = 1, disp.height do
+		if disp.redrawAll or disp.needsRedraw[y] then
+			renderLine(disp, y)
+			disp.needsRedraw[y] = false
+		end
+	end
+	screen.setCursorPos(disp.cursorX, disp.cursorY)
+	screen.setCursorBlink(disp.cursorBlink)
+	disp.redrawAll = false
+end
+
+local function centerWrite(txt)
+	local x, y = screen.getCursorPos()
+	local w, h = screen.getSize()
+	x = math.floor((w / 2) - (#txt / 2))
+	screen.setCursorPos(x, y)
+	screen.write(txt)
+end
+
+local function drawBackground()
+	if bgType == BG_COLOR then
+		screen.setBackgroundColor(desktopBgColor)
+		screen.clear()
+		screen.setCursorPos(1, 1)
+		screen.setTextColor(desktopTxtColor)
+		centerWrite("MysticOS")
+	elseif bgType == BG_IMAGE then
+		desktopImage:render()
+	end
+	screen.setCursorPos(1, 1)
+	screen.setCursorBlink(false)
+end
+
+local function drawDisplay()
+	local disp = getFrontDisplay()
+	if disp then
+		renderDisplay(disp)
+	else
+		drawBackground()
+	end
+end
+
+local function drawScreen()
+	if bRedraw then
+		screen.setCursorBlink(false)
+		drawDisplay()
+		bRedraw = false
+	end
+end
+
+local function redrawDisplay()
+	if curDisplay == frontDisplay then
+		redraw()
+	end
+end
+
+local function redrawAll()
+	local disp = getFrontDisplay()
+	if disp then
+		disp.redrawAll = true
+	end
+	redraw()
+end
+
+local function resize(disp, width, height)
+	if disp.width ~= width or disp.height ~= height then
+		local h = math.min(disp.height, height)
+		if width > disp.width then
+			local diff = width - disp.width
+			local sBlank = string.rep(" ", diff)
+			local sTxtColor = string.rep(colors.toString(disp.curTxtColor), diff)
+			local sBackColor = string.rep(colors.toString(disp.curBgColor), diff)
+			for y = 1, h do
+				disp.text[y] = disp.text[y]..sBlank
+				disp.txtColor[y] = disp.txtColor[y]..sTxtColor
+				disp.bgColor[y] = disp.bgColor[y]..sBackColor
+			end
+		else
+			for y = 1, h do
+				disp.text[y] = string.sub(disp.text[y], 1, width)
+				disp.txtColor[y] = string.sub(disp.txtColor[y], 1, width)
+				disp.bgColor[y] = string.sub(disp.bgColor[y], 1, width)
+			end
+		end
+		if height > disp.height then
+			local w = math.max(disp.width, width)
+			local sBlank = string.rep(" ", w)
+			local sTxtColor = string.rep(colors.toString(disp.curTxtColor), w)
+			local sBackColor = string.rep(colors.toString(disp.curBgColor), w)
+			for y = disp.height + 1, height do
+				disp.text[y] = sBlank
+				disp.bgColor[y] = sTxtColor
+				disp.txtColor[y] = sBackColor
+			end
+		else
+			for y = height + 1, disp.height do
+				disp.text[y] = nil
+				disp.bgColor[y] = nil
+				disp.txtColor[y] = nil
+			end
+		end
+		disp.width = width
+		disp.height = height
+		disp.redrawAll = true
+		redrawDisplay()
+	end
+end
+
+-- Display API
+
+function redraw()
+	if not bRedraw then
+		bRedraw = true
+		redrawTimer = os.startTimer(nRedrawDelay)
+	end
+end
+
+function drawImage(img, x, y, w, h, ox, oy)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	w = w or img.width
+	h = h or img.height
+	ox = ox or 0
+	oy = oy or 0
+	if x <= disp.width and y <= disp.height then
+		local sx, sy = 1, 1
+		if x < 1 then
+			w = w + x - 1
+			sx = -x + 1
+			x = 1
+		end
+		if x + w - 1 > disp.width then
+			w = disp.width - x + 1
+		end
+		if y < 1 then
+			h = h + y - 1
+			sy = -y + 1
+			y = 1
+		end
+		if y + h - 1 > disp.height then
+			h = disp.height - y + 1
+		end
+		for i = 0, h - 1 do
+			disp.bgColor[y+i] = string.replace(disp.bgColor[y+i], x, x + w - 1, string.sub(img.bgColor[oy+sy+i], ox + sx, ox + sx + w))
+			disp.txtColor[y+i] = string.replace(disp.txtColor[y+i], x, x + w - 1, string.sub(img.txtColor[oy+sy+i], ox + sx, ox + sx + w))
+			disp.text[y+i] = string.replace(disp.text[y+i], x, x + w - 1, string.sub(img.text[oy+sy+i], ox + sx, ox + sx + w))
+			disp.needsRedraw[y+i] = true
+		end
+		redrawDisplay()
+	end
+end
+
+function write(txt, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	checkType(txt, "string")
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	if x <= disp.width and y > 0 and y <= disp.height then
+		if x < 1 then
+			txt = string.sub(txt, -x + 1)
+			x = 1
+		end
+		if x + #txt - 1 > disp.width then
+			txt = string.sub(txt, 1, (disp.width - x) + 1)
+		end
+		disp.bgColor[y] = string.replace(disp.bgColor[y], x, x + #txt - 1, string.rep(colors.toString(disp.curBgColor), #txt))
+		disp.txtColor[y] = string.replace(disp.txtColor[y], x, x + #txt - 1, string.rep(colors.toString(disp.curTxtColor), #txt))
+		disp.text[y] = string.replace(disp.text[y], x, x + #txt - 1, txt)
+		disp.needsRedraw[y] = true
+		disp.cursorX = x + #txt
+		redrawDisplay()
+	end
+end
+
+function read(len, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return nil
+	end
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	if x <= disp.width and y > 0 and y <= disp.height then
+		if x < 1 then
+			len = len + x - 1
+			x = 1
+		end
+		return string.sub(disp.text[y], x, x + len)
+	end
+end
+
+function clear(c)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	local sBlank = string.rep(" ", disp.width)
+	local sBgColor = string.rep(colors.toString(c or disp.curBgColor), disp.width)
+	local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
+	for y = 1, disp.height do
+		disp.text[y] = sBlank
+		disp.bgColor[y] = sBgColor
+		disp.txtColor[y] = sTxtColor
+	end
+	disp.redrawAll = true
+	redrawDisplay()
+end
+
+function clearLine(y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	y = y or disp.cursorY
+	if y > 0 and y <= disp.height then
+		disp.text[y] = string.rep(" ", disp.width)
+		disp.bgColor[y] = string.rep(colors.toString(disp.curBgColor), disp.width)
+		disp.txtColor[y] = string.rep(colors.toString(disp.curTxtColor), disp.width)
+		disp.needsRedraw[y] = true
+		redrawDisplay()
+	end
+end
+
+function getSize()
+	local disp = getDisplay()
+	if disp then
+		return disp.width, disp.height
+	end
+	return 0, 0
+end
+
+function getWidth()
+	local disp = getDisplay()
+	return disp and disp.width or 0
+end
+
+function getHeight()
+	local disp = getDisplay()
+	return disp and disp.height or 0
+end
+
+function getCursorPos()
+	local disp = getDisplay()
+	if disp then
+		return disp.cursorX, disp.cursorY
+	end
+	return 0, 0
+end
+
+function setCursorPos(x, y)
+	local disp = getDisplay()
+	if disp then
+		disp.cursorX = x or disp.cursorX
+		disp.cursorY = y or disp.cursorY
+		if disp.cursorBlink then
+			redrawDisplay()
+		end
+	end
+end
+
+function setCursorBlink(b)
+	local disp = getDisplay()
+	if disp then
+		if b ~= disp.cursorBlink then
+			disp.cursorBlink = b
+			redrawDisplay()
+		end
+	end
+end
+
+function getCursorBlink()
+	local disp = getDisplay()
+	return disp and disp.cursorBlink
+end
+
+function scroll(n)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	n = n or 1
+	if n >= disp.height or n <= -disp.height then
+		clear()
+	elseif n > 0 then
+		for y = 1, disp.height - n do
+			disp.text[y] = disp.text[y + n]
+			disp.bgColor[y] = disp.bgColor[y + n]
+			disp.txtColor[y] = disp.txtColor[y + n]
+		end
+		local sBlank = string.rep(" ", disp.width)
+		local sBgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
+		local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
+		for y = (disp.height - n) + 1, disp.height do
+			disp.text[y] = sBlank
+			disp.bgColor[y] = sBgColor
+			disp.txtColor[y] = sTxtColor
+		end
+	elseif n < 0 then
+		n = -n
+		for y = disp.height, 1 + n, -1 do
+			disp.text[y] = disp.text[y - n]
+			disp.bgColor[y] = disp.bgColor[y - n]
+			disp.txtColor[y] = disp.txtColor[y - n]
+		end
+		local sBlank = string.rep(" ", disp.width)
+		local sBgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
+		local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
+		for y = 1, n do
+			disp.text[y] = sBlank
+			disp.bgColor[y] = sBgColor
+			disp.txtColor[y] = sTxtColor
+		end
+	end
+	disp.redrawAll = true
+	redrawDisplay()
+end
+
+function setTextColor(c, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	if x and y then
+		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+			disp.txtColor[y] = string.set(disp.txtColor[y], x, colors.toString(c))
+			disp.needsRedraw[y] = true
+			redrawDisplay()
+		end
+	else
+		disp.curTxtColor = c
+	end
+end
+setTextColour = setTextColor
+
+function getTextColor(x, y)
+	local disp = getDisplay()
+	if not disp then
+		return 0
+	end
+	if x and y then
+		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+			return colors.fromString(string.at(disp.txtColor[y], x))
+		end
+	else
+		return disp.curTxtColor
+	end
+end
+getTextColour = getTextColor
+
+function setBackgroundColor(c, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	if x and y then
+		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+			disp.bgColor[y] = string.set(disp.bgColor[y], x, colors.toString(c))
+			disp.needsRedraw[y] = true
+			redrawDisplay()
+		end
+	else
+		disp.curBgColor = c
+	end
+end
+setBackgroundColour = setBackgroundColor
+
+function getBackgroundColor(x, y)
+	local disp = getDisplay()
+	if not disp then
+		return 0
+	end
+	if x and y then
+		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+			return colors.fromString(string.at(disp.bgColor[y], x))
+		end
+	else
+		return disp.curBgColor
+	end
+end
+getBackgroundColour = getBackgroundColor
+
+function setChar(c, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+		disp.text[y] = string.set(disp.text[y], x, string.at(tostring(c), 1))
+		disp.needsRedraw[y] = true
+		redrawDisplay()
+	end
+end
+
+function getChar(x, y)
+	local disp = getDisplay()
+	if not disp then
+		return nil
+	end
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+		return string.at(disp.text[y], x)
+	end
+end
+
+function drawChar(c, x, y)
+	local disp = getDisplay()
+	if not disp then
+		return
+	end
+	x = x or disp.cursorX
+	y = y or disp.cursorY
+	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
+		disp.bgColor[y] = string.set(disp.bgColor[y], x, colors.toString(disp.curBgColor))
+		disp.txtColor[y] = string.set(disp.txtColor[y], x, colors.toString(disp.curTxtColor))
+		disp.text[y] = string.set(disp.text[y], x, string.at(tostring(c), 1))
+		disp.needsRedraw[y] = true
+		redrawDisplay()
+	end
+end
+
+function snapshot()
+	local disp = getDisplay()
+	if not disp then
+		return nil
+	end
+	local tImg = image.new(disp.width, disp.height)
+	tImg.curBgColor = disp.curBgColor
+	tImg.curTxtColor = disp.curTxtColor
+	for y = 1, disp.height do
+		tImg.text[y] = disp.text[y]
+		tImg.bgColor[y] = disp.bgColor[y]
+		tImg.txtColor[y] = disp.txtColor[y]
+	end
+	return tImg
+end
+
+function isColor()
+	return screen.isColor()
+end
+isColour = isColor
+
+function new()
+	local disp = {}
+	local w, h = screen.getSize()
+	disp.width = w
+	disp.height = h
+	disp.text = {}
+	disp.bgColor = {}
+	disp.txtColor = {}
+	disp.curBgColor = colors.black
+	disp.curTxtColor = colors.white
+	disp.cursorX = 1
+	disp.cursorY = 1
+	disp.cursorBlink = false
+	disp.needsRedraw = {}
+	disp.redrawAll = true
+	local sBlank = string.rep(" ", w)
+	local sColor = string.rep(colors.toString(colors.black), w)
+	for y = 1, h do
+		disp.text[y] = sBlank
+		disp.bgColor[y] = sColor
+		disp.txtColor[y] = sColor
+		disp.needsRedraw[y] = false
+	end
+	return addDisplay(disp)
+end
+
+function remove(id)
+	tDisplays[id] = nil
+	if id == curDisplay then
+		curDisplay = nil
+	end
+	if id == frontDisplay then
+		frontDisplay = nil
+		redraw()
+	end
+end
+
+function setCurrent(id)
+	if tDisplays[id] then
+		if id ~= curDisplay then
+			curDisplay = id
+		end
+		return true
+	end
+	return false
+end
+
+function setFront(id)
+	if id == 0 then
+		frontDisplay = nil
+		redraw()
+	elseif tDisplays[id] then
+		if id ~= frontDisplay then
+			frontDisplay = id
+			redrawAll()
+		end
+		return true
+	end
+	return false
+end
+
+function getCurrent()
+	return curDisplay
+end
+
+function getFront()
+	return frontDisplay
+end
+
+function update()
+	local w, h = screen.getSize()
+	if w ~= screenW or h ~= screenH then
+		os.queueEvent("display_resize", w, h)
+		screenW = w
+		screenH = h
+		for _,disp in pairs(tDisplays) do
+			resize(disp, w, h)
+		end
+	end
+end
+
+function setDesktopBgColor(c)
+	desktopBgColor = c
+end
+
+function getDesktopBgColor()
+	return desktopBgColor
+end
+
+function setDesktopTxtColor(c)
+	desktopTxtColor = c
+end
+
+function getDesktopTxtColor()
+	return desktopTxtColor
+end
+
+function setDesktopImage(img)
+	desktopImage = img
+end
+
+function setDesktopType(nType)
+	bgType = nType
+end
+
+function getDesktopType()
+	return bgType
+end
+
+-- Event Handlers
+
+local function handleTimer(timer)
+	if timer == redrawTimer then
+		drawScreen()
+		return true
+	end
+end
+
+local bInit = false
+function init()
+	if not bInit then
+		screenW, screenH = screen.getSize()
+		events.addHandler("timer", handleTimer)
+		bInit = true
+	end
+end

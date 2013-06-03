@@ -1,9 +1,0 @@
-local tArgs = {...}
-if #tArgs ~= 1 then
-	print("Usage: switch <app name>")
-	return
-end
-
-if not os.switchApp(tArgs[1]) then
-	print("No such app")
-end

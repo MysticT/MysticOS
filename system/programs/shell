@@ -1,10 +1,10 @@
--- MysticOS Terminal
+-- MysticOS Shell
 
 local parentShell = shell
 
 local bExit = false
 local sDir = (parentShell and parentShell.dir()) or ""
-local sPath = (parentShell and parentShell.path()) or ".:/rom/programs:/MysticOS/programs:/usr/programs"
+local sPath = (parentShell and parentShell.path()) or ".:/system/programs:/rom/programs:/usr/programs"
 local tAliases = (parentShell and parentShell.aliases()) or {}
 local tProgramStack = {}
 local tCommandHistory = {}
@@ -14,19 +14,11 @@ local tShellEnv = { ["shell"] = shell }
 tShellEnv._G = tShellEnv
 setmetatable(tShellEnv, { __index = getfenv() })
 
-local function runFile(tEnv, sPath, ...)
-	local fn, err = loadfile(sPath, tEnv)
-	if fn then
-		return pcall(fn, ...)
-	end
-	return false, err
-end
-
 local function run(sCmd, ...)
 	local sPath = shell.resolveProgram(sCmd)
 	if sPath then
 		tProgramStack[#tProgramStack + 1] = sPath
-		local tResults = { runFile(tShellEnv, sPath, ...) }
+		local tResults = { os.run(tShellEnv, sPath, ...) }
 		tProgramStack[#tProgramStack] = nil
 		return unpack(tResults)
 	end
@@ -35,10 +27,7 @@ local function run(sCmd, ...)
 end
 
 local function runLine(sLine)
-	local tWords = {}
-	for w in string.gmatch(sLine, "[^ \t]+") do
-		tWords[#tWords + 1] = w
-	end
+	local tWords = textutils.splitArgs(sLine)
 	if #tWords > 0 then
 		return run(unpack(tWords))
 	end
@@ -74,7 +63,7 @@ end
 function shell.resolve(sPath)
 	local sStartChar = string.at(sPath, 1)
 	if sStartChar == "/" or sStartChar == "\\" then
-		return fs.combine("", sPath)
+		return fs.resolvePath(sPath)
 	else
 		return fs.combine(sDir, sPath)
 	end
@@ -86,7 +75,7 @@ function shell.resolveProgram(sCommand)
 	end
 	local sStartChar = string.at(sCommand, 1)
 	if sStartChar == "/" or sStartChar == "\\" then
-		local sPath = fs.combine("", sCommand)
+		local sPath = fs.resolvePath(sCommand)
 		if fs.exists(sPath) and not fs.isDir(sPath) then
 			return sPath
 		end
@@ -115,7 +104,7 @@ function shell.programs(bIncludeHidden)
 		end
     end	
 	local tItemList = {}
-	for sItem, b in pairs(tItems) do
+	for sItem in pairs(tItems) do
 		tItemList[#tItemList + 1] = sItem
 	end
 	table.sort(tItemList)
@@ -147,6 +136,19 @@ term.setBackgroundColor(colors.black)
 term.setTextColor(term.isColor() and colors.yellow or colors.white)
 print(os.version())
 term.setTextColor(colors.white)
+
+if not parentShell then
+	local sRomStartup = shell.resolveProgram("/rom/startup")
+	if sRomStartup then
+		shell.run(sRomStartup)
+	end
+	-- TODO: user startup?
+end
+
+local tArgs = {...}
+if #tArgs > 0 then
+	shell.run(...)
+end
 
 while not bExit do
 	term.setBackgroundColor(colors.black)

@@ -30,12 +30,12 @@ end
 
 function term.redirectScreen(target)
 	screen.redirect(target)
-	display.updateDisplays()
+	display.update()
 end
 
 function term.restoreScreen()
 	screen.restore()
-	display.updateDisplays()
+	display.update()
 end
 
 return term

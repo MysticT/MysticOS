@@ -90,13 +90,56 @@ local function serializeImpl(t, tTracking)
 	end
 end
 
+local function isWhiteSpace(c)
+	return c == " " or c == "\t" or c == "\n"
+end
+
+local function skipWhitespace(s, i)
+	while i <= #s and isWhiteSpace(string.at(s, i)) do
+		i = i + 1
+	end
+	return i
+end
+
+local function getArg(s, i)
+	local arg = ""
+	local len = #s
+	while i <= len do
+		local c = string.at(s, i)
+		if c == '"' then
+			local n = string.find(s, '"', i + 1, true)
+			if n then
+				arg = arg..string.sub(s, i + 1, n - 1)
+				i = n + 1
+			else
+				arg = arg..c
+				i = i + 1
+			end
+		elseif c == "\\" then
+			-- escape characters
+			local c2 = string.at(s, i + 1)
+			if c2 == " " then
+				arg = arg..c2
+				i = i + 2
+			else
+				arg = arg..c
+				i = i + 1
+			end
+		elseif isWhiteSpace(c) then
+			break
+		else
+			arg = arg..c
+			i = i + 1
+		end
+	end
+	return arg, i
+end
+
 -- API
 
 function slowWrite(sText, nRate)
 	nRate = nRate or 20
-	if nRate < 0 then
-		error("rate must be positive", 2)
-	end
+	assert(nRate > 0, "rate must be positive", 2)
 	local nDelay = 1 / nRate
 	sText = tostring(sText)
 	local x, y = term.getCursorPos()
@@ -181,4 +224,19 @@ function urlEncode(str)
 		str = string.gsub(str, " ", "+")
 	end
 	return str
+end
+
+function splitArgs(sLine)
+	local i = 1
+	local len = #sLine
+	local tArgs = {}
+	while i <= len do
+		i = skipWhitespace(sLine, i)
+		if i <= len then
+			local arg
+			arg, i = getArg(sLine, i)
+			tArgs[#tArgs + 1] = arg
+		end
+	end
+	return tArgs
 end

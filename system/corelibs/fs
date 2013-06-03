@@ -1,7 +1,5 @@
 -- MysticOS File System
 
--- TODO: delete() link files
-
 local native = fs
 local tOpenFiles = {}
 
@@ -205,7 +203,7 @@ local function splitPath(sPath)
 				i = i - 1
 				t[i] = nil
 			else
-				return nil
+				return nil -- TODO
 			end
 		elseif path ~= "" and path ~= "." then
 			t[i] = path
@@ -224,18 +222,6 @@ local function resolveLink(path)
 			end
 			file.close()
 		end
-	end
-	return path
-end
-
-local function resolvePath(sPath)
-	local t = splitPath(sPath)
-	if t == nil then
-		return nil
-	end
-	local path = ""
-	for i = 1, #t do
-		path = resolveLink(path.."/"..t[i])
 	end
 	return path
 end
@@ -266,7 +252,7 @@ local function wrap(h, path, mode)
 	elseif mode == "w" or mode == "a" then
 		return {
 			write = function(s) h.write(s) end,
-			writeLine = function(s) h.readLine(s) end,
+			writeLine = function(s) h.writeLine(s) end,
 			flush = function() h.flush() end,
 			close = function() closeHandle(path) end
 		}
@@ -320,30 +306,49 @@ end
 
 -- API
 
-function list(path, bIncludeHidden)
-	local l = native.list(resolvePath(path))
-	if not bIncludeHidden then
-		local t = {}
-		for i = 1, #l do
-			if string.at(l[i], 1) ~= "." then
-				t[#t + 1] = l[i]
-			end
-		end
-		return t
+function resolvePath(sPath, bFollowLinks)
+	local t = splitPath(sPath)
+	if t == nil then
+		return nil
 	end
-	return l
+	if bFollowLinks then
+		local path = ""
+		for i = 1, #t do
+			path = resolveLink(path.."/"..t[i])
+		end
+		return path
+	end
+	return table.concat(t, "/")
+end
+
+function list(path, bIncludeHidden)
+	local l = native.list(resolvePath(path, true))
+	if bIncludeHidden then
+		return l
+	end
+	local t = {}
+	for i = 1, #l do
+		if string.at(l[i], 1) ~= "." then
+			t[#t + 1] = l[i]
+		end
+	end
+	return t
 end
 
 function exists(path)
-	return native.exists(resolvePath(path))
+	return native.exists(resolvePath(path, true))
 end
 
 function isDir(path)
-	return native.isDir(resolvePath(path))
+	return native.isDir(resolvePath(path, true))
+end
+
+function isFile(path)
+	return not native.isDir(resolvePath(path, true))
 end
 
 function isReadOnly(path)
-	return native.isReadOnly(resolvePath(path))
+	return native.isReadOnly(resolvePath(path, true))
 end
 
 function getName(path, bRemoveExtension)
@@ -362,28 +367,34 @@ function getExtension(path)
 	return ""
 end
 
+function getDir(path)
+	path = resolvePath(path, false)
+	local name = native.getName(path)
+	return string.sub(path, 1, #path - #name)
+end
+
 function getDrive(path)
-	return native.getDrive(resolvePath(path))
+	return native.getDrive(resolvePath(path, true))
 end
 
 function getSize(path)
-	return native.getSize(resolvePath(path))
+	return native.getSize(resolvePath(path, true))
 end
 
 function makeDir(path)
-	return native.makeDir(resolvePath(path))
+	return native.makeDir(resolvePath(path, true))
 end
 
 function move(srcPath, dstPath)
-	return native.move(resolvePath(srcPath), resolvePath(dstPath))
+	return native.move(resolvePath(srcPath, true), resolvePath(dstPath, true))
 end
 
 function copy(srcPath, dstPath)
-	return native.copy(resolvePath(srcPath), resolvePath(dstPath))
+	return native.copy(resolvePath(srcPath, true), resolvePath(dstPath, true))
 end
 
 function delete(path)
-	return native.delete(resolvePath(path))
+	return native.delete(resolvePath(path, true))
 end
 
 function combine(basePath, localPath)
@@ -391,13 +402,13 @@ function combine(basePath, localPath)
 end
 
 function isOpen(path)
-	return tOpenFiles[resolvePath(path)] ~= nil
+	return tOpenFiles[resolvePath(path, true)] ~= nil
 end
 
 function makeLink(linkPath, dstPath)
-	linkPath = resolvePath(linkPath)
-	dstPath = resolvePath(dstPath)
-	if exists(linkPath) or not exists(dstPath) then
+	linkPath = resolvePath(linkPath, true)
+	dstPath = resolvePath(dstPath, true)
+	if native.exists(linkPath) or not native.exists(dstPath) then
 		return false
 	end
 	local file = native.open(linkPath, "wb")
@@ -410,8 +421,22 @@ function makeLink(linkPath, dstPath)
 	return true
 end
 
+function isLink(path)
+	local sDir = getDir(path)
+	path = native.combine(sDir, native.getName(path))
+	if native.exists(path) and not native.isDir(path) then
+		local file = native.open(path, "rb")
+		if file then
+			local sHdr = readString(file, #linkHdr)
+			file.close()
+			return sHdr == linkHdr
+		end
+	end
+	return false
+end
+
 function open(path, mode)
-	path = resolvePath(path)
+	path = resolvePath(path, true)
 	if isOpen(path) then
 		return nil
 	end

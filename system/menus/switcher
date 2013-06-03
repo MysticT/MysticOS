@@ -1,0 +1,84 @@
+-- MysticOS Switcher Menu
+
+local nSelected
+
+local function switch()
+	menu.close()
+	app.switch(nSelected)
+end
+
+local function getSnapshot(n)
+	local dispID = app.getDisplay(n)
+	local prevID = display.getCurrent()
+	display.setCurrent(dispID)
+	local img = display.snapshot()
+	display.setCurrent(prevID)
+	return img
+end
+
+local function centerWrite(txt)
+	local w, h = display.getSize()
+	local x = math.floor((w / 2) - (#txt / 2))
+	local y = math.floor(h / 2)
+	display.write(txt, x, y)
+end
+
+local function redraw()
+	local list = app.list()
+	display.setBackgroundColor(display.getDesktopBgColor())
+	display.setTextColor(display.getDesktopTxtColor())
+	display.clear()
+	if #list > 0 then
+		local appName = list[nSelected].name
+		local img = getSnapshot(appName)
+		display.drawImage(img, 1, 1)
+		-- TODO --
+		centerWrite(appName)
+	else
+		centerWrite("- No Apps Open -")
+	end
+end
+
+local function next()
+	local list = app.list()
+	if nSelected < #list then
+		nSelected = nSelected + 1
+	else
+		nSelected = 1
+	end
+	redraw()
+end
+
+local function prev()
+	local list = app.list()
+	if nSelected > 1 then
+		nSelected = nSelected - 1
+	else
+		nSelected = #list
+	end
+	redraw()
+end
+
+local function open()
+	nSelected = 1
+	redraw()
+end
+
+local function onKeyPress(key)
+	if key == keys.right then
+		next()
+	elseif key == keys.left then
+		prev()
+	elseif key == keys.enter then
+		switch()
+	end
+end
+
+while true do
+	local evt, p1, p2, p3 = os.pullEvent()
+	if evt == "open" then
+		open()
+	elseif evt == "key" then
+		onKeyPress(p1)
+	end
+end

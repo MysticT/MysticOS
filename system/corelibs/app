@@ -1,0 +1,210 @@
+-- MysticOS Application Manager Library
+
+local tApps = {}
+local tNames = {}
+local tDisplays = {}
+local curApp
+
+local function getName(name)
+	if tNames[name] then
+		local n, s = 1
+		repeat
+			n = n + 1
+			s = name.."["..tostring(n).."]"
+		until not tNames[s]
+		return s
+	end
+	return name
+end
+
+local function addApp(name, path, pid, dispID)
+	tApps[#tApps + 1] = {
+		name = name,
+		path = path,
+		pid = pid,
+		dispID = dispID
+	}
+	tNames[name] = true
+	tDisplays[pid] = dispID
+	return #tApps
+end
+
+local function removeApp(n)
+	local tApp = tApps[n]
+	if tApp then
+		display.remove(tApp.dispID)
+		tNames[tApp.name] = nil
+		tDisplays[tApp.pid] = nil
+		table.remove(tApps, n)
+		if n == curApp then
+			curApp = nil
+			if n > #tApps then
+				n = #tApps
+			end
+			switch(n)
+		end
+	end
+end
+
+local function getApp(name)
+	for n = 1, #tApps do
+		if tApps[n].name == name then
+			return tApps[n], n
+		end
+	end
+end
+
+local function runApp(tApp, ...)
+	display.setCurrent(tApp.dispID)
+	proc.sendEvent(tApp.pid, ...)
+end
+
+-- API
+
+function start(env, path)
+	path = fs.resolvePath(path, true)
+	local func, err = loadfile(path, env)
+	if not func then
+		return false, err
+	end
+	local name = getName(fs.getName(path))
+	local pid = proc.createProcess(name, env)
+	local ok, err = proc.createThread(func, pid)
+	if not ok then
+		proc.kill(pid)
+		return false, err
+	end
+	local dispID = display.new(pid)
+	addApp(name, path, pid, dispID)
+	return true, name
+end
+
+function run(n, ...)
+	local tApp = tApps[n] or getApp(n)
+	if tApp then
+		runApp(tApp, ...)
+	end
+end
+
+function switch(n)
+	if n == 0 then
+		curApp = nil
+		display.setFront(0)
+		return true
+	end
+	if n == curApp then
+		return true
+	end
+	local tApp = tApps[n]
+	if not tApp then
+		tApp, n = getApp(n)
+	end
+	if tApp then
+		display.setFront(tApp.dispID)
+		curApp = n
+		return true
+	end
+	return false
+end
+
+function next()
+	if curApp then
+		if curApp < #tApps then
+			switch(curApp + 1)
+		else
+			switch(1)
+		end
+	end
+end
+
+function prev()
+	if curApp then
+		if curApp > 1 then
+			switch(curApp - 1)
+		else
+			switch(#tApps)
+		end
+	end
+end
+
+function kill(n)
+	n = n or curApp
+	local tApp = tApps[n]
+	if not tApp then
+		tApp, n = getApp(n)
+	end
+	if tApp then
+		proc.kill(tApp.pid)
+		removeApp(n)
+	end
+end
+
+function list()
+	local l = {}
+	for i = 1, #tApps do
+		l[#l + 1] = {
+			name = tApps[i].name,
+			path = tApps[i].path
+		}
+	end
+	return l
+end
+
+function getCurrent()
+	if curApp then
+		local tApp = tApps[curApp]
+		return tApp and tApp.name
+	end
+end
+
+function getDisplay(n)
+	local tApp = tApps[n or curApp] or getApp(n)
+	return tApp and tApp.dispID
+end
+
+-- Event Handlers
+
+local function onProcessEnd(pid)
+	for n = 1, #tApps do
+		if tApps[n].pid == pid then
+			removeApp(n)
+			break
+		end
+	end
+end
+
+local function onProcessRun(pid)
+	local dispID = tDisplays[pid]
+	if dispID then
+		display.setCurrent(dispID)
+	end
+end
+
+local function onProcessYield(pid)
+	local tApp = tApps[curApp]
+	if tApp and tApp.pid == pid then
+		display.setCurrent(0)
+	end
+end
+
+local function onUserInput(evt, ...)
+	if curApp then
+		local tApp = tApps[curApp]
+		if tApp then
+			runApp(tApp, evt, ...)
+			return true
+		end
+	end
+end
+
+local bInit = false
+function init()
+	if not bInit then
+		-- Event Handlers
+		events.addHandler("process_end", onProcessEnd)
+		events.addHandler("process_run", onProcessRun)
+		events.addHandler("process_yield", onProcessYield)
+		events.addHandler("user_input", onUserInput)
+		bInit = true
+	end
+end

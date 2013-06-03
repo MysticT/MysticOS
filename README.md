@@ -4,18 +4,20 @@ MysticOS
 Note: This is still a work in progress, so expect bugs and missing/incomplete features.
 
 MysticOS is an Operating System for ComputerCraft.
-It's been designed with the small screen size in mind. So it gives programs as
-much space as possible, no windows or anything that takes space (with the
-exception of the system bar).
+It provides many improvements over the default CraftOS.
+It's main features are:
+*	Display/screen management, which reduces screen redraws.
+*	Ability to run multiple programs at the same time.
+*	Compatibility with CraftOS programs and APIs.
+*	And much, much more.
 
-Features
---------
+Usage/Controls
+--------------
 
-*	Threads
-*	Background Programs
-*	Graphics Library
-*	Notification System
-*	And much more
+### Menus ###
+F10: App Switcher
+F11: App Launcher
+F12: System Menu
 
 Installation
 ------------

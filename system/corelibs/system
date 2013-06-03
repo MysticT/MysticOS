@@ -43,6 +43,7 @@ end
 function run()
 	local tEvt = {}
 	while bRunning do
+		proc.update()
 		if not events.dispatch(unpack(tEvt)) then
 			proc.run(unpack(tEvt))
 		end

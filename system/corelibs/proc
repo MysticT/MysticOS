@@ -101,6 +101,7 @@ end
 function Proc:run(sEvt, ...)
 	if self:isRunning() then
 		nRunningProcess = self.id
+		events.dispatch("process_run", self.id)
 		for id, thread in pairs(self.runningThreads) do
 			if checkFilter(sEvt, self.filters[id]) then
 				local tStatus = { thread:run(sEvt, ...) }
@@ -115,6 +116,7 @@ function Proc:run(sEvt, ...)
 				end
 			end
 		end
+		events.dispatch("process_yield", self.id)
 	end
 end
 
@@ -409,11 +411,6 @@ local function updateProcs()
 	table.clear(tStopList)
 	table.copy(tReadyQueue, tRunningQueue)
 	table.clear(tReadyQueue)
---[[
-	for _,tProc in pairs(tRunningQueue) do
-		tProc:updateThreads()
-	end
---]]
 end
 
 local function runProc(tProc, sEvt, ...)
@@ -433,13 +430,15 @@ function sendEvent(pid, sEvt, ...)
 	end
 end
 
-function run(sEvt, ...)
+function update()
 	updateProcs()
-	events.dispatch("tick_start")
+	events.dispatch("process_update")
+end
+
+function run(sEvt, ...)
 	bRunning = true
-	for id, tProc in pairs(tRunningQueue) do
+	for _,tProc in pairs(tRunningQueue) do
 		runProc(tProc, sEvt, ...)
 	end
 	bRunning = false
-	events.dispatch("tick_end")
 end

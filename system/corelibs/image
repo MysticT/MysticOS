@@ -4,23 +4,6 @@
 
 -- Colors
 
-local tColorLookup = {}
-for i = 1, 16 do
-	tColorLookup[string.byte("0123456789abcdef", i, i)] = 2 ^ (i - 1)
-end
-
-local function color2str(c)
-	local i = math.floor(math.logN(c, 2)) + 1
-	if i > 0 and i <= 16 then
-		return string.at("0123456789abcdef", i)
-	end
-	return "0"
-end
-
-local function str2color(s, i)
-	return tColorLookup[string.byte(s, i or 1)] or 0
-end
-
 local function getBgColor(c)
 	return 2 ^ bit.band(bit.brshift(c, 4), 0x0F)
 end
@@ -50,12 +33,12 @@ function img:render(target, ox, oy)
 		local sBgColor = self.bgColor[y]
 		local sTxtColor = self.txtColor[y]
 		while i <= self.width do
-			local bgColor = str2color(sBgColor, i)
-			local txtColor = str2color(sTxtColor, i)
+			local bgColor = colors.fromString(sBgColor, i)
+			local txtColor = colors.fromString(sTxtColor, i)
 			j = i
 			i = i + 1
-			while i <= self.width and bgColor == str2color(sBgColor, i) and
-					txtColor == str2color(sTxtColor, i) do
+			while i <= self.width and bgColor == colors.fromString(sBgColor, i) and
+					txtColor == colors.fromString(sTxtColor, i) do
 				i = i + 1
 			end
 			target.setBackgroundColor(bgColor)
@@ -65,13 +48,13 @@ function img:render(target, ox, oy)
 	end
 end
 
-function img:draw(src, ox, oy, x, y, w, h)
-	ox = ox or 0
-	oy = oy or 0
+function img:draw(src, x, y, w, h, ox, oy)
 	x = x or 1
 	y = y or 1
 	w = w or src.width
 	h = h or src.height
+	ox = ox or 0
+	oy = oy or 0
 	if x <= self.width and y <= self.height then
 		local sx, sy = 1, 1
 		if x < 1 then
@@ -107,8 +90,8 @@ function img:write(x, y, txt)
 		if x + #txt - 1 > self.width then
 			txt = string.sub(txt, 1, (self.width - x) + 1)
 		end
-		self.bgColor[y] = string.replace(self.bgColor[y], x, x + #txt - 1, string.rep(color2str(self.curBgColor), #txt))
-		self.txtColor[y] = string.replace(self.txtColor[y], x, x + #txt - 1, string.rep(color2str(self.curTxtColor), #txt))
+		self.bgColor[y] = string.replace(self.bgColor[y], x, x + #txt - 1, string.rep(colors.toString(self.curBgColor), #txt))
+		self.txtColor[y] = string.replace(self.txtColor[y], x, x + #txt - 1, string.rep(colors.toString(self.curTxtColor), #txt))
 		self.text[y] = string.replace(self.text[y], x, x + #txt - 1, txt)
 		return #txt
 	end
@@ -118,7 +101,7 @@ end
 function img:read(x, y, len)
 	if x <= self.width and y > 0 and y <= self.height then
 		if x < 1 then
-			w = len + x - 1
+			len = len + x - 1
 			x = 1
 		end
 		return string.sub(self.text[y], x, x + len)
@@ -127,8 +110,8 @@ end
 
 function img:clear(c)
 	local sBlank = string.rep(" ", self.width)
-	local sBgColor = string.rep(color2str(c or self.curBgColor), self.width)
-	local sTxtColor = string.rep(color2str(self.curTxtColor), self.width)
+	local sBgColor = string.rep(colors.toString(c or self.curBgColor), self.width)
+	local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
 	for y = 1, self.height do
 		self.text[y] = sBlank
 		self.bgColor[y] = sBgColor
@@ -139,8 +122,8 @@ end
 function img:clearLine(y)
 	if y > 0 and y <= self.height then
 		self.text[y] = string.rep(" ", self.width)
-		self.bgColor[y] = string.rep(color2str(self.curBgColor), self.width)
-		self.txtColor[y] = string.rep(color2str(self.curTxtColor), self.width)
+		self.bgColor[y] = string.rep(colors.toString(self.curBgColor), self.width)
+		self.txtColor[y] = string.rep(colors.toString(self.curTxtColor), self.width)
 	end
 end
 
@@ -167,8 +150,8 @@ function img:scroll(n)
 			self.txtColor[y] = self.txtColor[y + n]
 		end
 		local sBlank = string.rep(" ", self.width)
-		local sBgColor = string.rep(color2str(self.curBgColor), self.width)
-		local sTxtColor = string.rep(color2str(self.curTxtColor), self.width)
+		local sBgColor = string.rep(colors.toString(self.curBgColor), self.width)
+		local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
 		for y = (self.height - n) + 1, self.height do
 			self.text[y] = sBlank
 			self.bgColor[y] = sBgColor
@@ -182,8 +165,8 @@ function img:scroll(n)
 			self.txtColor[y] = self.txtColor[y - n]
 		end
 		local sBlank = string.rep(" ", self.width)
-		local sBgColor = string.rep(color2str(self.curBgColor), self.width)
-		local sTxtColor = string.rep(color2str(self.curTxtColor), self.width)
+		local sBgColor = string.rep(colors.toString(self.curBgColor), self.width)
+		local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
 		for y = 1, n do
 			self.text[y] = sBlank
 			self.bgColor[y] = sBgColor
@@ -195,7 +178,7 @@ end
 function img:setTextColor(c, x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
-			self.txtColor[y] = string.set(self.txtColor[y], x, color2str(c))
+			self.txtColor[y] = string.set(self.txtColor[y], x, colors.toString(c))
 		end
 	else
 		self.curTxtColor = c
@@ -206,7 +189,7 @@ img.setTextColour = img.setTextColor
 function img:getTextColor(x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
-			return str2color(string.at(self.txtColor[y], x))
+			return colors.fromString(string.at(self.txtColor[y], x))
 		end
 	else
 		return self.curTxtColor
@@ -217,7 +200,7 @@ img.getTextColour = img.getTextColor
 function img:setBackgroundColor(c, x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
-			self.bgColor[y] = string.set(self.bgColor[y], x, color2str(c))
+			self.bgColor[y] = string.set(self.bgColor[y], x, colors.toString(c))
 		end
 	else
 		self.curBgColor = c
@@ -228,7 +211,7 @@ img.setBackgroundColour = img.setBackgroundColor
 function img:getBackgroundColor(x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
-			return str2color(string.at(self.bgColor[y], x))
+			return colors.fromString(string.at(self.bgColor[y], x))
 		end
 	else
 		return self.curBgColor
@@ -250,8 +233,8 @@ end
 
 function img:drawChar(x, y, c)
 	if x > 0 and x <= self.width and y > 0 and y <= self.height then
-		self.bgColor[y] = string.set(self.bgColor[y], x, color2str(self.curBgColor))
-		self.txtColor[y] = string.set(self.txtColor[y], x, color2str(self.curTxtColor))
+		self.bgColor[y] = string.set(self.bgColor[y], x, colors.toString(self.curBgColor))
+		self.txtColor[y] = string.set(self.txtColor[y], x, colors.toString(self.curTxtColor))
 		self.text[y] = string.set(self.text[y], x, string.at(tostring(c), 1))
 	end
 end
@@ -279,8 +262,8 @@ function img:resize(width, height)
 		if width > self.width then
 			local diff = width - self.width
 			local sBlank = string.rep(" ", diff)
-			local sTxtColor = string.rep(color2str(self.curTxtColor), diff)
-			local sBackColor = string.rep(color2str(self.curBgColor), diff)
+			local sTxtColor = string.rep(colors.toString(self.curTxtColor), diff)
+			local sBackColor = string.rep(colors.toString(self.curBgColor), diff)
 			for y = 1, h do
 				self.text[y] = self.text[y]..sBlank
 				self.txtColor[y] = self.txtColor[y]..sTxtColor
@@ -296,8 +279,8 @@ function img:resize(width, height)
 		if height > self.height then
 			local w = math.max(self.width, width)
 			local sBlank = string.rep(" ", w)
-			local sTxtColor = string.rep(color2str(self.curTxtColor), w)
-			local sBackColor = string.rep(color2str(self.curBgColor), w)
+			local sTxtColor = string.rep(colors.toString(self.curTxtColor), w)
+			local sBackColor = string.rep(colors.toString(self.curBgColor), w)
 			for y = self.height + 1, height do
 				self.text[y] = sBlank
 				self.bgColor[y] = sTxtColor
@@ -327,7 +310,7 @@ function new(w, h)
 	tImg.curBgColor = colors.black
 	tImg.curTxtColor = colors.white
 	local sBlank = string.rep(" ", w)
-	local sColor = string.rep(color2str(colors.black), w)
+	local sColor = string.rep(colors.toString(colors.black), w)
 	for y = 1, h do
 		tImg.text[y] = sBlank
 		tImg.bgColor[y] = sColor
@@ -379,8 +362,8 @@ end
 local function writeImageData(file, tImg)
 	for y = 1, tImg.height do
 		for x = 1, tImg.width do
-			local bgColor = str2color(tImg.bgColor[y], x)
-			local txtColor = str2color(tImg.txtColor[y], x)
+			local bgColor = colors.fromString(tImg.bgColor[y], x)
+			local txtColor = colors.fromString(tImg.txtColor[y], x)
 			file.writeUByte(getColorByte(bgColor, txtColor))
 			file.writeChar(string.at(tImg.text[y], x))
 		end
@@ -395,8 +378,8 @@ local function readImageData(file, tImg)
 		local txtColor = ""
 		for x = 1, tImg.width do
 			local c = file.readUByte()
-			bgColor = bgColor..color2str(getBgColor(c))
-			txtColor = txtColor..color2str(getTxtColor(c))
+			bgColor = bgColor..colors.toString(getBgColor(c))
+			txtColor = txtColor..colors.toString(getTxtColor(c))
 			txt = txt..file.readChar()
 		end
 		tImg.text[y] = txt

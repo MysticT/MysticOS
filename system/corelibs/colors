@@ -31,3 +31,20 @@ end
 function test(c, n)
 	return bit.band(c, n) == c
 end
+
+local tColorLookup = {}
+for i = 1, 16 do
+	tColorLookup[string.byte("0123456789abcdef", i, i)] = 2 ^ (i - 1)
+end
+
+function toString(c)
+	local i = math.floor(math.logN(c, 2)) + 1
+	if i > 0 and i <= 16 then
+		return string.at("0123456789abcdef", i)
+	end
+	return "0"
+end
+
+function fromString(s, i)
+	return tColorLookup[string.byte(s, i or 1)] or 0
+end

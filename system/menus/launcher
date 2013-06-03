@@ -1,0 +1,134 @@
+-- MysticOS Launcher
+
+local sPath = "/system/programs:/rom/programs:/usr/programs"
+
+local nSelected
+local nScroll
+local screenH
+local tApps
+
+local function redraw()
+	local bgColor = display.getDesktopBgColor()
+	local txtColor = display.getDesktopTxtColor()
+	display.setBackgroundColor(bgColor)
+	display.clear()
+	for y = 1, math.min(#tApps, screenH) do
+		if y + nScroll == nSelected then
+			display.setBackgroundColor(txtColor)
+			display.setTextColor(bgColor)
+			display.clearLine(y)
+		else
+			display.setBackgroundColor(bgColor)
+			display.setTextColor(txtColor)
+		end
+		display.write(tApps[y + nScroll], 1, y)
+	end
+end
+
+local function setSelected(n)
+	if n ~= nSelected and n > 0 and n <= #tApps then
+		nSelected = n
+		if nSelected - nScroll > screenH then
+			nScroll = nSelected - screenH
+		elseif nSelected - nScroll < 1 then
+			nScroll = nSelected - 1
+		end
+		redraw()
+	end
+end
+
+local function next()
+	if nSelected < #tApps then
+		setSelected(nSelected + 1)
+	else
+		setSelected(1)
+	end
+end
+
+local function prev()
+	if nSelected > 1 then
+		setSelected(nSelected - 1)
+	else
+		setSelected(#tApps)
+	end
+end
+
+local function scroll(n)
+	local i = math.max(math.min(nScroll + n, #tApps - screenH), 0)
+	if i ~= nScroll then
+		nScroll = i
+		redraw()
+	end
+end
+
+function loadApps()
+	tApps = {}
+	for path in string.gmatch(sPath, "[^:]+") do
+		path = fs.resolvePath(path)
+		if fs.isDir(path) then
+			local list = fs.list(path, true)
+			for i = 1, #list do
+				local sAppPath = fs.combine(path, list[i])
+				if fs.isFile(sAppPath) then
+					tApps[#tApps + 1] = sAppPath
+				end
+			end
+		end
+	end
+	table.sort(tApps)
+end
+
+local function open()
+	loadApps()
+	nSelected = 1
+	nScroll = 0
+	screenH = display.getHeight()
+	redraw()
+end
+
+local function runApp()
+	os.runApp(nil, tApps[nSelected])
+	menu.close()
+end
+
+local function onKeyPress(key)
+	if key == keys.down then
+		next()
+	elseif key == keys.up then
+		prev()
+	elseif key == keys["end"] then
+		setSelected(#tApps)
+	elseif key == keys.home then
+		setSelected(1)
+	elseif key == keys.enter then
+		runApp()
+	end
+end
+
+local function onMouseClick(btn, x, y)
+	y = y + nScroll
+	if btn == 1 and y <= #tApps then
+		if y == nSelected then
+			runApp()
+		else
+			setSelected(y)
+		end
+	end
+end
+
+local function onMouseScroll(dir, x, y)
+	scroll(dir)
+end
+
+while true do
+	local evt, p1, p2, p3 = os.pullEvent()
+	if evt == "open" then
+		open()
+	elseif evt == "key" then
+		onKeyPress(p1)
+	elseif evt == "mouse_click" then
+		onMouseClick(p1, p2, p3)
+	elseif evt == "mouse_scroll" then
+		onMouseScroll(p1, p2, p3)
+	end
+end
