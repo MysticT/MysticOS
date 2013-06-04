@@ -15,9 +15,9 @@ Usage/Controls
 --------------
 
 ### Menus ###
-F10: App Switcher
-F11: App Launcher
-F12: System Menu
+*	F10: App Switcher
+*	F11: App Launcher
+*	F12: System Menu
 
 Installation
 ------------

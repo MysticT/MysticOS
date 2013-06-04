@@ -13,9 +13,7 @@ local redrawTimer
 BG_COLOR = 1
 BG_IMAGE = 2
 
-local bgType = BG_COLOR
-local desktopBgColor = colors.blue
-local desktopTxtColor = colors.white
+local desktopImgPath
 local desktopImage
 
 local function getDisplay()
@@ -76,14 +74,26 @@ local function centerWrite(txt)
 end
 
 local function drawBackground()
+	local bgType = sysconfig.get("desktopType")
 	if bgType == BG_COLOR then
-		screen.setBackgroundColor(desktopBgColor)
+		local bgColor = sysconfig.get("desktopBgColor")
+		local txtColor = sysconfig.get("desktopTxtColor")
+		screen.setBackgroundColor(bgColor)
 		screen.clear()
 		screen.setCursorPos(1, 1)
-		screen.setTextColor(desktopTxtColor)
+		screen.setTextColor(txtColor)
 		centerWrite("MysticOS")
 	elseif bgType == BG_IMAGE then
-		desktopImage:render()
+		local imgPath = sysconfig.get("desktopImagePath")
+		if imgPath ~= desktopImagePath then
+			desktopImage = image.load(imgPath)
+			if desktopImage then
+				desktopImagePath = imgPath
+			end
+		end
+		if desktopImage then
+			desktopImage:render()
+		end
 	end
 	screen.setCursorPos(1, 1)
 	screen.setCursorBlink(false)
@@ -585,34 +595,6 @@ function update()
 			resize(disp, w, h)
 		end
 	end
-end
-
-function setDesktopBgColor(c)
-	desktopBgColor = c
-end
-
-function getDesktopBgColor()
-	return desktopBgColor
-end
-
-function setDesktopTxtColor(c)
-	desktopTxtColor = c
-end
-
-function getDesktopTxtColor()
-	return desktopTxtColor
-end
-
-function setDesktopImage(img)
-	desktopImage = img
-end
-
-function setDesktopType(nType)
-	bgType = nType
-end
-
-function getDesktopType()
-	return bgType
 end
 
 -- Event Handlers

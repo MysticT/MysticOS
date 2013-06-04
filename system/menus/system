@@ -6,8 +6,8 @@ local screenH
 local tOptions = { "Settings", "Reboot", "Shutdown" }
 
 local function redraw()
-	local bgColor = display.getDesktopBgColor()
-	local txtColor = display.getDesktopTxtColor()
+	local bgColor = sysconfig.get("desktopBgColor")
+	local txtColor = sysconfig.get("desktopTxtColor")
 	display.setBackgroundColor(bgColor)
 	display.clear()
 	for y = 1, math.min(#tOptions, screenH) do

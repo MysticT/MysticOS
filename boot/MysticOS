@@ -1,6 +1,6 @@
 -- MysticCore
 
-__VERSION = "MysticCore 0.2"
+__VERSION = "MysticCore 0.3"
 
 local sLibsPath = "system/corelibs"
 local sStartupPath = "system/startup"

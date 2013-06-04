@@ -343,6 +343,7 @@ fs.init()
 display.init()
 app.init()
 menu.init()
+sysconfig.load()
 
 -- Initialize Environment
 
@@ -427,11 +428,11 @@ events.addHandler("process_update", function()
 end)
 
 events.addHandler("key", function(key)
-	if key == keys.f10 then -- App Switcher
+	if key == sysconfig.get("keys_switcherMenu") then -- App Switcher
 		openMenu(switcherMenu)
-	elseif key == keys.f11 then -- Launcher
+	elseif key == sysconfig.get("keys_launcherMenu") then -- Launcher
 		openMenu(launcherMenu)
-	elseif key == keys.f12 then -- System Menu
+	elseif key == sysconfig.get("keys_systemMenu") then -- System Menu
 		openMenu(systemMenu)
 	else
 		events.dispatch("user_input", "key", key)
@@ -450,6 +451,7 @@ do
 	end
 end
 
+-- First redraw
 display.redraw()
 
 -- Start running

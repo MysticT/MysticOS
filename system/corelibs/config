@@ -1,0 +1,65 @@
+-- MysticOS Config Library
+
+-- Config class
+
+local Config = {}
+
+function Config:get(name)
+	checkType(name, "string")
+	local v = self.values[name]
+	return v and v.value
+end
+
+function Config:set(name, value)
+	checkType(name, "string")
+	local tp = type(value)
+	if tp ~= "boolean" and tp ~= "number" and tp ~= "string" then
+		error("Can't save value of type "..tp, 2)
+	end
+	self.values[name] = {
+		value = value,
+		type = string.at(tp, 1)
+	}
+end
+
+function Config:save(path)
+	local file = fs.open(path, "w")
+	if file then
+		for k, v in pairs(self.values) do
+			file.writeLine(v.type..":"..k.." = "..tostring(v.value))
+		end
+		file.close()
+		return true
+	end
+	return false
+end
+
+-- API
+
+function new()
+	local tConfig = {}
+	tConfig.values = {}
+	return setmetatable(tConfig, { __index = Config, __metatable = "Config" })
+end
+
+function load(path)
+	local file = fs.open(path, "r")
+	if file then
+		local tConfig = new()
+		local sLine = file.readLine()
+		while sLine do
+			local tp, name, val = string.match(sLine, "([bns]):(.+)%s+=%s+(.+)")
+			if tp and name and val then
+				if tp == "b" then
+					val = val == "true"
+				elseif tp == "n" then
+					val = tonumber(val)
+				end
+				tConfig:set(name, val)
+			end
+			sLine = file.readLine()
+		end
+		file.close()
+		return tConfig
+	end
+end

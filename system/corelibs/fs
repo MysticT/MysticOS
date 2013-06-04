@@ -226,6 +226,22 @@ local function resolveLink(path)
 	return path
 end
 
+local function resolve(sPath, bFollowLinks)
+	assert(type(sPath) == "string", "string expected, got "..type(sPath), 4)
+	local t = splitPath(sPath)
+	if t == nil then
+		return nil
+	end
+	if bFollowLinks then
+		local path = ""
+		for i = 1, #t do
+			path = resolveLink(path.."/"..t[i])
+		end
+		return path
+	end
+	return table.concat(t, "/")
+end
+
 local function openHandle(path, mode, pid, handle)
 	tOpenFiles[path] = {
 		mode = mode,
@@ -306,19 +322,8 @@ end
 
 -- API
 
-function resolvePath(sPath, bFollowLinks)
-	local t = splitPath(sPath)
-	if t == nil then
-		return nil
-	end
-	if bFollowLinks then
-		local path = ""
-		for i = 1, #t do
-			path = resolveLink(path.."/"..t[i])
-		end
-		return path
-	end
-	return table.concat(t, "/")
+function resolvePath(path, bFollowLinks)
+	return resolve(path, bFollowLinks)
 end
 
 function list(path, bIncludeHidden)

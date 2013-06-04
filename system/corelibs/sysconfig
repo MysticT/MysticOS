@@ -1,0 +1,42 @@
+-- MysticOS System Configuration
+
+local sPath = "/system/sys.cfg"
+local tConfig
+
+local tDefaults = {
+	desktopType = display.BG_COLOR,
+	desktopBgColor = colors.blue,
+	desktopTxtColor = colors.white,
+	desktopImagePath = "/system/background.mif",
+	keys_switcherMenu = keys.f10,
+	keys_launcherMenu = keys.f11,
+	keys_systemMenu = keys.f12
+}
+
+-- API
+
+function get(name)
+	return tConfig and tConfig:get(name) or tDefaults[name]
+end
+
+function set(name, value)
+	if tConfig then
+		tConfig:set(name, value)
+		tConfig:save(sPath)
+	end
+end
+
+function loadDefaults()
+	for k, v in pairs(tDefaults) do
+		tConfig:set(k, v)
+		tConfig:save(sPath)
+	end
+end
+
+function load()
+	tConfig = config.load(sPath)
+	if not tConfig then
+		tConfig = config.new()
+		loadDefaults()
+	end
+end
