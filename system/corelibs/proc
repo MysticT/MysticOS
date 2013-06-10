@@ -26,11 +26,6 @@ function Thread:isRunning()
 	return self.running
 end
 
-function Thread:kill()
-	self.running = false
-	events.dispatch("thread_kill", self.id) -- TODO: pass process id?
-end
-
 function Thread:stop()
 	self.running = false
 end
@@ -69,13 +64,12 @@ function Proc:getName()
 	return self.name
 end
 
-function Proc:isRunning()
-	return self.running
+function Proc:getRunTime()
+	return self.runTime
 end
 
-function Proc:kill()
-	self.running = false
-	events.dispatch("process_kill", self.id)
+function Proc:isRunning()
+	return self.running
 end
 
 function Proc:stop()
@@ -102,6 +96,7 @@ function Proc:run(sEvt, ...)
 	if self:isRunning() then
 		nRunningProcess = self.id
 		events.dispatch("process_run", self.id)
+		local t0 = os.clock()
 		for id, thread in pairs(self.runningThreads) do
 			if checkFilter(sEvt, self.filters[id]) then
 				local tStatus = { thread:run(sEvt, ...) }
@@ -116,6 +111,7 @@ function Proc:run(sEvt, ...)
 				end
 			end
 		end
+		self.runTime = self.runTime + os.clock() - t0
 		events.dispatch("process_yield", self.id)
 	end
 end
@@ -158,16 +154,14 @@ end
 
 function Proc:killThread(id)
 	if self.runningThreads[id] then
-		self.runningThreads[id]:kill()
+		self.runningThreads[id]:stop()
 		self.killList[id] = true
 		return true
 	elseif self.blockedThreads[id] then
-		self.blockedThreads[id]:kill()
 		self.blockedThreads[id] = nil
 		self.filters[id] = nil
 		return true
 	elseif self.readyThreads[id] then
-		self.readyThreads[id]:kill()
 		self.readyThreads[id] = nil
 		self.filters[id] = nil
 		return true
@@ -218,6 +212,7 @@ local function newProcess(name, env)
 	local tProc = {}
 	tProc.id = nPID
 	tProc.name = name
+	tProc.runTime = 0
 	tProc.running = true
 	tProc.tid = 1
 	tProc.readyThreads = {}
@@ -291,7 +286,7 @@ end
 
 function kill(pid)
 	if tRunningQueue[pid] then
-		tRunningQueue[pid]:kill()
+		tRunningQueue[pid]:stop()
 		if bRunning then
 			tKillList[pid] = true
 		else
@@ -299,11 +294,9 @@ function kill(pid)
 		end
 		return true
 	elseif tBlockedQueue[pid] then
-		tBlockedQueue[pid]:kill()
 		tBlockedQueue[pid] = nil
 		return true
 	elseif tReadyQueue[pid] then
-		tReadyQueue[pid]:kill()
 		tReadyQueue[pid] = nil
 		return true
 	end
@@ -313,21 +306,27 @@ end
 function list()
 	local l = {}
 	for id, tProc in pairs(tRunningQueue) do
-		local p = {}
-		p.id = id
-		p.name = tProc:getName()
+		local p = {
+			id = id,
+			name = tProc:getName(),
+			runTime = tProc:getRunTime()
+		}
 		l[#l + 1] = p
 	end
 	for id, tProc in pairs(tReadyQueue) do
-		local p = {}
-		p.id = id
-		p.name = tProc:getName()
+		local p = {
+			id = id,
+			name = tProc:getName(),
+			runTime = tProc:getRunTime()
+		}
 		l[#l + 1] = p
 	end
 	for id, tProc in pairs(tBlockedQueue) do
-		local p = {}
-		p.id = id
-		p.name = tProc:getName()
+		local p = {
+			id = id,
+			name = tProc:getName(),
+			runTime = tProc:getRunTime()
+		}
 		l[#l + 1] = p
 	end
 	return l
@@ -418,7 +417,7 @@ local function runProc(tProc, sEvt, ...)
 	tProc:run(sEvt, ...)
 	if tProc:threadCount() == 0 then
 		local id = tProc:getID()
-		tProc:kill()
+		tProc:stop()
 		tKillList[id] = true
 		events.dispatch("process_end", id)
 	end

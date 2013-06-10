@@ -82,27 +82,35 @@ function os.reboot()
 	end
 end
 
-function os.loadAPI(path, name)
-	local env = getfenv(2)
+local function loadLib(path, env)
 	local tEnv = {}
 	setmetatable(tEnv, { __index = env })
-	local fnAPI, err = loadfile(path, tEnv)
-	if not fnAPI then
+	local fnLib, err = loadfile(path, tEnv)
+	if not fnLib then
 		return nil, err
 	end
-	local ok, api = pcall(fnAPI)
+	local ok, lib = pcall(fnLib)
 	if not ok then
-		return nil, api
+		return nil, lib
 	end
-	if not api or type(api) ~= "table" then
-		api = {}
+	if not lib or type(lib) ~= "table" then
+		lib = {}
 		for k, v in pairs(tEnv) do
-			api[k] = v
+			lib[k] = v
 		end
 	end
+	return lib
+end
+
+function os.loadAPI(path, name)
+	local env = getfenv(2)
+	local lib, err = loadLib(path, env)
+	if not lib then
+		return nil, err
+	end
 	name = name or fs.getName(path, true)
-	env[name] = api
-	return api, name
+	env[name] = lib
+	return lib, name
 end
 
 function os.unloadAPI(name)
@@ -110,6 +118,15 @@ function os.unloadAPI(name)
 	if env[name] then
 		env[name] = nil
 	end
+end
+
+function os.loadLib(name)
+	local path = fs.combine("/usr/libs", name) -- TODO
+	local lib, err = loadLib(path, getfenv(2))
+	if not lib then
+		return nil, err
+	end
+	return lib, name
 end
 
 function os.run(env, path, ...)
@@ -148,6 +165,10 @@ function os.runOnBackground(env, path)
 		return false, err
 	end
 	return true
+end
+
+function os.processList()
+	return proc.list()
 end
 
 -- Global functions
@@ -378,8 +399,42 @@ end
 
 -- Screen & Display
 
-local function showError(msg)
-	-- TODO --
+local sysDispID = display.new()
+local prevApp
+
+local function showSysDisplay()
+	if menu.isOpen() then
+		menu.close()
+	end
+	prevApp = app.getCurrent()
+	if prevApp then
+		app.switch(0)
+	end
+	display.setFront(sysDispID)
+	display.setCurrent(sysDispID)
+end
+
+local function hideSysDisplay()
+	display.setFront(0)
+	display.setCurrent(0)
+	if prevApp then
+		app.switch(prevApp)
+	end
+end
+
+-- Error handling
+
+local bError = false
+
+local function showError(title, msg)
+	bError = true
+	showSysDisplay()
+	term.clear()
+	local w, h = display.getSize()
+	term.setCursorPos(math.floor((w / 2) - (#title / 2)), 1)
+	write(title)
+	term.setCursorPos(1, 2)
+	print(msg)
 end
 
 -- System Menus
@@ -392,11 +447,11 @@ local function newMenu(path)
 	return id
 end
 
-local function openMenu(id)
+local function openMenu(id, ...)
 	if menu.isOpen(id) then
 		menu.close()
 	else
-		menu.open(id)
+		menu.open(id, ...)
 	end
 end
 
@@ -412,7 +467,7 @@ events.addHandler("terminate", function()
 end)
 
 events.addHandler("error", function(pid, tid, err)
-	showError("Error (PID: "..pid.." TID: "..tid.."): "..err)
+	showError("Error (PID: "..pid.." TID: "..tid..")", err)
 end)
 
 events.addHandler("process_update", function()
@@ -428,14 +483,21 @@ events.addHandler("process_update", function()
 end)
 
 events.addHandler("key", function(key)
-	if key == sysconfig.get("keys_switcherMenu") then -- App Switcher
-		openMenu(switcherMenu)
-	elseif key == sysconfig.get("keys_launcherMenu") then -- Launcher
-		openMenu(launcherMenu)
-	elseif key == sysconfig.get("keys_systemMenu") then -- System Menu
-		openMenu(systemMenu)
+	if bError then
+		if key == keys.enter then
+			hideSysDisplay()
+			bError = false
+		end
 	else
-		events.dispatch("user_input", "key", key)
+		if key == sysconfig.get("keys_switcherMenu") then -- App Switcher
+			openMenu(switcherMenu, app.getCurrent())
+		elseif key == sysconfig.get("keys_launcherMenu") then -- Launcher
+			openMenu(launcherMenu)
+		elseif key == sysconfig.get("keys_systemMenu") then -- System Menu
+			openMenu(systemMenu)
+		else
+			events.dispatch("user_input", "key", key)
+		end
 	end
 	return true
 end)

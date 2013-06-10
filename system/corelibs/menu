@@ -27,11 +27,6 @@ local function removeMenu(id)
 	end
 end
 
-local function closeMenu()
-	display.setFront(0)
-	curMenu = nil
-end
-
 -- API
 
 function new(env, path, name)
@@ -51,12 +46,10 @@ function new(env, path, name)
 	return true, addMenu(name, path, pid, dispID)
 end
 
-function open(id)
+function open(id, ...)
 	local tMenu = tMenus[id]
 	if tMenu then
-		if curMenu then
-			closeMenu()
-		else
+		if not curMenu then
 			prevApp = app.getCurrent()
 			if prevApp then
 				app.switch(0)
@@ -65,13 +58,14 @@ function open(id)
 		curMenu = id
 		display.setFront(tMenu.dispID)
 		display.setCurrent(tMenu.dispID)
-		proc.sendEvent(tMenu.pid, "open")
+		proc.sendEvent(tMenu.pid, "open", ...)
 	end
 end
 
 function close()
 	if curMenu then
-		closeMenu()
+		display.setFront(0)
+		curMenu = nil
 		if prevApp then
 			app.switch(prevApp)
 			prevApp = nil

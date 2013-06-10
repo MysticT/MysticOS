@@ -386,6 +386,10 @@ function getSize(path)
 	return native.getSize(resolvePath(path, true))
 end
 
+function getFreeSpace(path)
+	return native.getFreeSpace(resolvePath(path, true))
+end
+
 function makeDir(path)
 	return native.makeDir(resolvePath(path, true))
 end

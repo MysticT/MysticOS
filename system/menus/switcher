@@ -1,10 +1,22 @@
 -- MysticOS Switcher Menu
 
 local nSelected
+local tAppList
 
 local function switch()
 	menu.close()
 	app.switch(nSelected)
+end
+
+local function getCurrentApp(name)
+	if name then
+		for i = 1, #tAppList do
+			if tAppList[i].name == name then
+				return i
+			end
+		end
+	end
+	return 1
 end
 
 local function getSnapshot(n)
@@ -24,17 +36,15 @@ local function centerWrite(txt)
 end
 
 local function redraw()
-	local list = app.list()
 	local bgColor = sysconfig.get("desktopBgColor")
 	local txtColor = sysconfig.get("desktopTxtColor")
 	display.setBackgroundColor(bgColor)
 	display.setTextColor(txtColor)
 	display.clear()
-	if #list > 0 then
-		local appName = list[nSelected].name
+	if #tAppList > 0 then
+		local appName = tAppList[nSelected].name
 		local img = getSnapshot(appName)
 		display.drawImage(img, 1, 1)
-		-- TODO --
 		centerWrite(appName)
 	else
 		centerWrite("- No Apps Open -")
@@ -42,8 +52,7 @@ local function redraw()
 end
 
 local function next()
-	local list = app.list()
-	if nSelected < #list then
+	if nSelected < #tAppList then
 		nSelected = nSelected + 1
 	else
 		nSelected = 1
@@ -52,17 +61,17 @@ local function next()
 end
 
 local function prev()
-	local list = app.list()
 	if nSelected > 1 then
 		nSelected = nSelected - 1
 	else
-		nSelected = #list
+		nSelected = #tAppList
 	end
 	redraw()
 end
 
-local function open()
-	nSelected = 1
+local function open(curApp)
+	tAppList = app.list()
+	nSelected = getCurrentApp(curApp)
 	redraw()
 end
 
@@ -79,7 +88,7 @@ end
 while true do
 	local evt, p1, p2, p3 = os.pullEvent()
 	if evt == "open" then
-		open()
+		open(p1)
 	elseif evt == "key" then
 		onKeyPress(p1)
 	end

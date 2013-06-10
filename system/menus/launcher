@@ -1,11 +1,11 @@
 -- MysticOS Launcher
 
-local sPath = "/system/programs:/rom/programs:/usr/programs"
-
 local nSelected
 local nScroll
 local screenH
 local tApps
+
+local sPath = "/usr/apps"
 
 local function redraw()
 	local bgColor = sysconfig.get("desktopBgColor")
@@ -21,7 +21,7 @@ local function redraw()
 			display.setBackgroundColor(bgColor)
 			display.setTextColor(txtColor)
 		end
-		display.write(tApps[y + nScroll], 1, y)
+		display.write(tApps[y + nScroll].name, 1, y)
 	end
 end
 
@@ -61,21 +61,40 @@ local function scroll(n)
 	end
 end
 
-function loadApps()
+local function loadAppFile(path)
+	local file = fs.open(path, "r")
+	if file then
+		local tApp = {}
+		local sLine = file.readLine()
+		while sLine do
+			local k, v = string.match(sLine, "(.+)%s+=%s+(.+)")
+			if k and v then
+				tApp[string.lower(k)] = v
+			end
+			sLine = file.readLine()
+		end
+		file.close()
+		return tApp
+	end
+end
+
+local function cmpApp(a1, a2)
+	return a1.name < a2.name
+end
+
+local function loadApps()
 	tApps = {}
-	for path in string.gmatch(sPath, "[^:]+") do
-		path = fs.resolvePath(path)
-		if fs.isDir(path) then
-			local list = fs.list(path, true)
-			for i = 1, #list do
-				local sAppPath = fs.combine(path, list[i])
-				if fs.isFile(sAppPath) then
-					tApps[#tApps + 1] = sAppPath
-				end
+	local t = fs.list(sPath)
+	for i = 1, #t do
+		local path = fs.combine(sPath, t[i])
+		if fs.exists(path) and fs.isFile(path) then
+			local tApp = loadAppFile(path)
+			if tApp and tApp.name and tApp.path then
+				tApps[#tApps + 1] = tApp
 			end
 		end
 	end
-	table.sort(tApps)
+	table.sort(tApps, cmpApp)
 end
 
 local function open()
@@ -87,7 +106,9 @@ local function open()
 end
 
 local function runApp()
-	os.runApp(nil, tApps[nSelected])
+	local tApp = tApps[nSelected]
+	local args = tApp.args and textutils.splitArgs(tApp.args)
+	os.runApp(nil, tApp.path, args and unpack(args))
 	menu.close()
 end
 

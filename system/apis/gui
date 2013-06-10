@@ -4,8 +4,8 @@
 TODO:
 	.controls:
 		+ menu
-		+ label
 		+ checkbox
+		+ text & line edit
 	.Control:
 		+ aligned print (right, left, center)
 --]]
@@ -42,21 +42,8 @@ function Control:setPos(x, y)
 	self.y = y
 end
 
-function Control:getZ()
-	return self.z
-end
-
-function Control:setZ(z)
-	if z ~= self.z then
-		self.z = z
-		if self.parent and self.parent.sortChilds then
-			self.parent:sortChilds()
-		end
-	end
-end
-
-function Control:drawImage(src, ox, oy, x, y, w, h)
-	self.buff:draw(src, ox, oy, x, y, w, h)
+function Control:drawImage(src, x, y, w, h, ox, oy)
+	self.buff:draw(src, x, y, w, h, ox, oy)
 end
 
 function Control:write(txt, x, y)
@@ -209,14 +196,13 @@ function Control:print(sText, x, y)
 end
 
 function Control:render()
-	display.drawImage(self.buff, 0, 0, self.x, self.y, self.buff:getWidth(), self.buff:getHeight())
+	display.drawImage(self.buff, self.x, self.y)
 end
 
-function control(x, y, z, w, h)
+function control(x, y, w, h)
 	local ctrl = {}
 	ctrl.x = x
 	ctrl.y = y
-	ctrl.z = z
 	ctrl.cursorX = 1
 	ctrl.cursorY = 1
 	ctrl.buff = image.new(w, h)
@@ -227,18 +213,9 @@ end
 
 View = newClass(Control)
 
-local function cmpCtrl(ctrl1, ctrl2)
-	return ctrl1.z < ctrl2.z
-end
-
-function View:sortChilds()
-	table.sort(self.childs, cmpCtrl)
-end
-
 function View:addChild(child)
 	child.parent = self
 	self.childs[#self.childs + 1] = child
-	self:sortChilds()
 end
 
 function View:removeChild(child)
@@ -252,11 +229,9 @@ function View:removeChild(child)
 end
 
 function View:setFocus(child)
-	for i = 1, #self.childs - 1 do
+	for i = 2, #self.childs do
 		if self.childs[i] == child then
-			child.z = self.childs[#self.childs].z + 1
-			self.childs[#self.childs + 1] = child
-			table.remove(self.childs, i)
+			table.move(self.childs, i, 1)
 			break
 		end
 	end
@@ -350,14 +325,34 @@ function View:draw()
 		child:draw()
 		local x, y = child:getPos()
 		local w, h = child:getSize()
-		self:drawImage(child.buff, 0, 0, x, y, w, h)
+		self:drawImage(child.buff, x, y, w, h)
 	end
 end
 
-function view(x, y, z, w, h)
-	local v = control(x, y, z, w, h)
+function view(x, y, w, h)
+	local v = control(x, y, w, h)
 	v.childs = {}
 	return newObj(v, View)
+end
+
+-- Label
+
+Label = newClass(Control)
+
+function Label:draw()
+	self:clear()
+	self:setCursorPos(1, 1)
+	self:print(self.text)
+end
+
+function Label:setText(txt)
+	self.text = txt
+end
+
+function label(x, y, w, h, txt)
+	local lbl = control(x, y, w, h)
+	lbl.text = txt or ""
+	return newObj(lbl, Label)
 end
 
 -- Button
@@ -366,7 +361,7 @@ Button = newClass(Control)
 
 function Button:draw()
 	self:clear()
-	local x = math.ceil((self:getWidth() / 2) - (#self.text / 2))
+	local x = math.ceil((self:getWidth() / 2) - (#self.text / 2)) + 1
 	local y = math.ceil(self:getHeight() / 2)
 	self:write(self.text, x, y)
 end
@@ -376,15 +371,15 @@ function Button:setText(txt)
 end
 
 function Button:onMouseClick(btn, x, y)
-	if btn == 1 and self.onClick then
-		self.onClick()
+	if btn == 1 and self.callback then
+		self.callback()
 	end
 end
 
-function button(x, y, z, w, h, txt, onClick)
-	local btn = control(x, y, z, w, h)
+function button(x, y, w, h, txt, callback)
+	local btn = control(x, y, w, h)
 	btn.text = txt or ""
-	btn.onClick = onClick
+	btn.callback = callback
 	return newObj(btn, Button)
 end
 
@@ -394,8 +389,9 @@ ImageButton = newClass(Control)
 
 function ImageButton:draw()
 	if self.image then
-		local w, h = self.image:getWidth()
-		self:drawImage(self.image, 0, 0, 1, 1, w, h)
+		local w = math.min(self.image:getWidth(), self:getWidth())
+		local h = math.min(self.image:getHeight(), self:getHeight())
+		self:drawImage(self.image, 1, 1, w, h)
 	end
 end
 
@@ -404,19 +400,19 @@ function ImageButton:setImage(img)
 end
 
 function ImageButton:onMouseClick(btn, x, y)
-	if btn == 1 and self.onClick then
-		self.onClick()
+	if btn == 1 and self.callback then
+		self.callback()
 	end
 end
 
-function imageButton(x, y, z, w, h, img, onClick)
-	local btn = control(x, y, z, w, h)
+function imageButton(x, y, w, h, img, callback)
+	local btn = control(x, y, w, h)
 	if type(img) == "string" then
 		btn.image = image.load(img)
 	else
 		btn.image = img
 	end
-	btn.onClick = onClick
+	btn.callback = callback
 	return newObj(btn, ImageButton)
 end
 
@@ -426,13 +422,15 @@ List = newClass(Control)
 
 function List:draw()
 	self:clear()
-	for y = 1, math.min(#self.list, self.height - 1) do
+	for y = 1, math.min(#self.list, self:getHeight() - 1) do
 		if y + self.scroll == self.selected then
 			local c = self:getBackgroundColor()
 			self:setBackgroundColor(self.selectColor)
+			self:clearLine(y)
 			self:write(tostring(self.list[y + self.scroll]), 1, y)
 			self:setBackgroundColor(c)
 		else
+			self:clearLine(y)
 			self:write(tostring(self.list[y + self.scroll]), 1, y)
 		end
 	end
@@ -454,15 +452,25 @@ function List:setSelectionColor(c)
 	self.selectColor = c
 end
 
-function List:scrollDown()
-	if self.list and #self.list > self.height and self.scroll < #self.list then
-		self.scroll = self.scroll + 1
+function List:scroll(n)
+	if self.list then
+		self.scroll = math.max(math.min(self.scroll + n, #self.list - self:getHeight()), 0)
 	end
 end
 
-function List:scrollUp()
-	if self.scroll > 0 then
-		self.scroll = self.scroll - 1
+function List:setSelected(n)
+	if self.list then
+		if n ~= self.selected and n > 0 and n <= #self.list then
+			self.selected = n
+			if self.selected - self.scroll > self:getHeight() then
+				self.scroll = self.selected - self:getHeight()
+			elseif self.selected - self.scroll < 1 then
+				self.scroll = self.selected - 1
+			end
+			if self.onSelectionChanged then
+				self.onSelectionChanged()
+			end
+		end
 	end
 end
 
@@ -470,35 +478,60 @@ function List:getSelected()
 	return self.list[self.selected]
 end
 
+function List:next()
+	if self.selected < #self.list then
+		self:setSelected(self.selected + 1)
+	else
+		self:setSelected(1)
+	end
+end
+
+function List:prev()
+	if self.selected > 1 then
+		self:setSelected(self.selected - 1)
+	else
+		self:setSelected(#self.list)
+	end
+end
+
 function List:onMouseClick(btn, x, y)
-	local i = y + self.scroll
-	if self.list[i] then
-		if btn == 1 then
-			if i ~= self.selected then
-				self.selected = i
-				if self.onSelectionChanged then
-					self.onSelectionChanged(i)
-				end
+	if self.list then
+		y = y + self.scroll
+		if btn == 1 and y <= #self.list then
+			if y == nSelected then
+				-- TODO: activate callback?
+			else
+				self:setSelected(y)
 			end
 		end
 	end
 end
 
 function List:onMouseScroll(dir)
-	if dir == -1 then
-		self:scrollUp()
-	elseif dir == 1 then
-		self:scrollDown()
+	self:scroll(dir)
+end
+
+function List:onKeyDown(key)
+	if key == keys.down then
+		self:next()
+	elseif key == keys.up then
+		self:prev()
+	elseif key == keys["end"] then
+		self:setSelected(#self.list)
+	elseif key == keys.home then
+		self:setSelected(1)
+	elseif key == keys.enter then
+		-- TODO: activate callback?
 	end
 end
 
-function list(x, y, z, w, h, l, onClick)
-	local list = control(x, y, z, w, h)
+function list(x, y, w, h, l, callback)
+	local list = control(x, y, w, h)
 	list.list = l or {}
 	list.scroll = 0
-	list.selected = 0
+	list.selected = 1
 	list.selectColor = colors.blue
-	list.onSelectionChanged = onClick
+	list.onSelectionChanged = callback
 	return newObj(list, List)
 end
 
@@ -531,8 +564,8 @@ function Bar:setFill(n)
 	self.fill = math.max(math.min(n, 1), 0)
 end
 
-function bar(x, y, z, w, h)
-	local bar = control(x, y, z, w, h)
+function bar(x, y, w)
+	local bar = control(x, y, w, 1)
 	bar.fillColor = colors.green
 	bar.fill = 0
 	return newObj(bar, Bar)
@@ -553,18 +586,18 @@ end
 function SliderBar:onMouseClick(btn, x, y)
 	if self.active and btn == 1 then
 		self.fill = x / self:getWidth()
-		if self.onClick then
-			self.onClick(self.fill)
+		if self.callback then
+			self.callback(self.fill)
 		end
 	end
 end
 
 SliderBar.onMouseDrag = SliderBar.onMouseClick
 
-function sliderBar(x, y, z, w, h, onClick)
-	local sbar = bar(x, y, z, w, h)
+function sliderBar(x, y, w, callback)
+	local sbar = bar(x, y, w)
 	sbar.active = true
-	sbar.onClick = onClick
+	sbar.onClick = callback
 	return newObj(sbar, SliderBar)
 end
 
@@ -574,14 +607,13 @@ MessageBox = newClass(Control)
 
 function MessageBox:draw()
 	self:clear()
-	local w, h = self:getSize()
-	self:write(self.title, math.floor((w / 2) - (#self.title / 2)), 1)
+	self:write(self.title, math.floor((self:getWidth() / 2) - (#self.title / 2)), 1)
 	self:print(self.msg, 1, 2)
 	-- TODO: buttons
 end
 
-function messageBox(x, y, z, w, h, title, msg)
-	local msgbox = control(x, y, z, w, h)
+function messageBox(x, y, w, h, title, msg)
+	local msgbox = control(x, y, w, h)
 	msgbox.title = tostring(title)
 	msgbox.msg = tostring(msg)
 	return newObj(msgbox, MessageBox)

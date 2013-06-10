@@ -142,7 +142,6 @@ if not parentShell then
 	if sRomStartup then
 		shell.run(sRomStartup)
 	end
-	-- TODO: user startup?
 end
 
 local tArgs = {...}

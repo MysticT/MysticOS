@@ -174,6 +174,26 @@ local function resize(disp, width, height)
 	end
 end
 
+local function setLine(disp, y, txt, bgColor, txtColor)
+	local needsRedraw = false
+	if txt and (disp.text[y] ~= txt) then
+		disp.text[y] = txt
+		needsRedraw = true
+	end
+	if bgColor and (disp.bgColor[y] ~= bgColor) then
+		disp.bgColor[y] = bgColor
+		needsRedraw = true
+	end
+	if txtColor and (disp.txtColor[y] ~= txtColor) then
+		disp.txtColor[y] = txtColor
+		needsRedraw = true
+	end
+	if needsRedraw then
+		disp.needsRedraw[y] = true
+		redrawDisplay()
+	end
+end
+
 -- Display API
 
 function redraw()
@@ -213,37 +233,35 @@ function drawImage(img, x, y, w, h, ox, oy)
 			h = disp.height - y + 1
 		end
 		for i = 0, h - 1 do
-			disp.bgColor[y+i] = string.replace(disp.bgColor[y+i], x, x + w - 1, string.sub(img.bgColor[oy+sy+i], ox + sx, ox + sx + w))
-			disp.txtColor[y+i] = string.replace(disp.txtColor[y+i], x, x + w - 1, string.sub(img.txtColor[oy+sy+i], ox + sx, ox + sx + w))
-			disp.text[y+i] = string.replace(disp.text[y+i], x, x + w - 1, string.sub(img.text[oy+sy+i], ox + sx, ox + sx + w))
-			disp.needsRedraw[y+i] = true
+			local txt = string.replace(disp.text[y+i], x, x + w - 1, string.sub(img.text[oy+sy+i], ox + sx, ox + sx + w))
+			local bgColor = string.replace(disp.bgColor[y+i], x, x + w - 1, string.sub(img.bgColor[oy+sy+i], ox + sx, ox + sx + w))
+			local txtColor = string.replace(disp.txtColor[y+i], x, x + w - 1, string.sub(img.txtColor[oy+sy+i], ox + sx, ox + sx + w))
+			setLine(disp, y + i, txt, bgColor, txtColor)
 		end
-		redrawDisplay()
 	end
 end
 
-function write(txt, x, y)
+function write(sTxt, x, y)
 	local disp = getDisplay()
 	if not disp then
 		return
 	end
-	checkType(txt, "string")
+	checkType(sTxt, "string")
 	x = x or disp.cursorX
 	y = y or disp.cursorY
 	if x <= disp.width and y > 0 and y <= disp.height then
 		if x < 1 then
-			txt = string.sub(txt, -x + 1)
+			sTxt = string.sub(sTxt, -x + 1)
 			x = 1
 		end
-		if x + #txt - 1 > disp.width then
-			txt = string.sub(txt, 1, (disp.width - x) + 1)
+		if x + #sTxt - 1 > disp.width then
+			sTxt = string.sub(sTxt, 1, (disp.width - x) + 1)
 		end
-		disp.bgColor[y] = string.replace(disp.bgColor[y], x, x + #txt - 1, string.rep(colors.toString(disp.curBgColor), #txt))
-		disp.txtColor[y] = string.replace(disp.txtColor[y], x, x + #txt - 1, string.rep(colors.toString(disp.curTxtColor), #txt))
-		disp.text[y] = string.replace(disp.text[y], x, x + #txt - 1, txt)
-		disp.needsRedraw[y] = true
-		disp.cursorX = x + #txt
-		redrawDisplay()
+		local txt = string.replace(disp.text[y], x, x + #sTxt - 1, sTxt)
+		local bgColor = string.replace(disp.bgColor[y], x, x + #sTxt - 1, string.rep(colors.toString(disp.curBgColor), #sTxt))
+		local txtColor = string.replace(disp.txtColor[y], x, x + #sTxt - 1, string.rep(colors.toString(disp.curTxtColor), #sTxt))
+		setLine(disp, y, txt, bgColor, txtColor)
+		disp.cursorX = x + #sTxt
 	end
 end
 
@@ -287,11 +305,10 @@ function clearLine(y)
 	end
 	y = y or disp.cursorY
 	if y > 0 and y <= disp.height then
-		disp.text[y] = string.rep(" ", disp.width)
-		disp.bgColor[y] = string.rep(colors.toString(disp.curBgColor), disp.width)
-		disp.txtColor[y] = string.rep(colors.toString(disp.curTxtColor), disp.width)
-		disp.needsRedraw[y] = true
-		redrawDisplay()
+		local txt = string.rep(" ", disp.width)
+		local bgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
+		local txtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
+		setLine(disp, y, txt, bgColor, txtColor)
 	end
 end
 
@@ -355,6 +372,7 @@ function scroll(n)
 	n = n or 1
 	if n >= disp.height or n <= -disp.height then
 		clear()
+		return
 	elseif n > 0 then
 		for y = 1, disp.height - n do
 			disp.text[y] = disp.text[y + n]
@@ -396,9 +414,7 @@ function setTextColor(c, x, y)
 	end
 	if x and y then
 		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			disp.txtColor[y] = string.set(disp.txtColor[y], x, colors.toString(c))
-			disp.needsRedraw[y] = true
-			redrawDisplay()
+			setLine(disp, y, nil, nil, string.set(disp.txtColor[y], x, colors.toString(c)))
 		end
 	else
 		disp.curTxtColor = c
@@ -428,9 +444,7 @@ function setBackgroundColor(c, x, y)
 	end
 	if x and y then
 		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			disp.bgColor[y] = string.set(disp.bgColor[y], x, colors.toString(c))
-			disp.needsRedraw[y] = true
-			redrawDisplay()
+			setLine(disp, y, nil, string.set(disp.bgColor[y], x, colors.toString(c)))
 		end
 	else
 		disp.curBgColor = c
@@ -461,9 +475,7 @@ function setChar(c, x, y)
 	x = x or disp.cursorX
 	y = y or disp.cursorY
 	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-		disp.text[y] = string.set(disp.text[y], x, string.at(tostring(c), 1))
-		disp.needsRedraw[y] = true
-		redrawDisplay()
+		setLine(disp, y, string.set(disp.text[y], x, string.at(tostring(c), 1)))
 	end
 end
 
@@ -487,11 +499,10 @@ function drawChar(c, x, y)
 	x = x or disp.cursorX
 	y = y or disp.cursorY
 	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-		disp.bgColor[y] = string.set(disp.bgColor[y], x, colors.toString(disp.curBgColor))
-		disp.txtColor[y] = string.set(disp.txtColor[y], x, colors.toString(disp.curTxtColor))
-		disp.text[y] = string.set(disp.text[y], x, string.at(tostring(c), 1))
-		disp.needsRedraw[y] = true
-		redrawDisplay()
+		local text = string.set(disp.text[y], x, string.at(tostring(c), 1))
+		local bgColor = string.set(disp.bgColor[y], x, colors.toString(disp.curBgColor))
+		local txtColor = string.set(disp.txtColor[y], x, colors.toString(disp.curTxtColor))
+		setLine(disp, y, txt, bgColor, txtColor)
 	end
 end
 

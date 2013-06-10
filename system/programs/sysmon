@@ -1,0 +1,52 @@
+-- MysticOS System Monitor
+
+-- WIP --
+
+local bExit = false
+local refreshTimer = os.startTimer(1)
+
+local screenW, screenH = graphics.getSize()
+local view = gui.view(1, 1, screenW, screenH)
+
+local function getProcessList()
+	local list = {}
+	local l = os.processList()
+	for i = 1, #l do
+		list[i] = l[i].id.." "..l[i].name.." "..l[i].runTime
+	end
+	return list
+end
+
+local function getFsUsage()
+	return "Disk Space: "..fs.getFreeSpace("/").." bytes"
+end
+
+-- GUI
+
+local function exit()
+	bExit = true
+end
+
+local exitButton = gui.button(screenW, 1, 1, 1, "x", exit)
+exitButton:setBackgroundColor(colors.red)
+view:addChild(exitButton)
+
+local fsLabel = gui.label(1, screenH, screenW, 1, getFsUsage())
+view:addChild(fsLabel)
+
+local list = gui.list(1, 2, screenW, screenH - 2, getProcessList())
+view:addChild(list)
+
+-- Main loop
+
+while not bExit do
+	view:draw()
+	view:render()
+	local tEvt = { os.pullEvent() }
+	if tEvt[1] == "timer" and tEvt[2] == refreshTimer then
+		list:setList(getProcessList())
+		refreshTimer = os.startTimer(1)
+	else
+		view:handleEvent(unpack(tEvt))
+	end
+end
