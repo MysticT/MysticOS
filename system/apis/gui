@@ -3,11 +3,13 @@
 --[[
 TODO:
 	.controls:
-		+ menu
 		+ checkbox
 		+ text & line edit
+		+ focusable property
 	.Control:
-		+ aligned print (right, left, center)
+		+ write & print functions
+		+ common drawing functions
+	* fix menus
 --]]
 
 -- Helper functions
@@ -17,8 +19,7 @@ local function checkBounds(x, y, w, h, px, py)
 end
 
 local function checkControlBounds(ctrl, x, y)
-	local w, h = ctrl:getSize()
-	return checkBounds(ctrl.x, ctrl.y, w, h, x, y)
+	return checkBounds(ctrl.x, ctrl.y, ctrl.width, ctrl.height, x, y)
 end
 
 local function newClass(parent)
@@ -29,7 +30,7 @@ local function newObj(tbl, class)
 	return setmetatable(tbl, { __index = class })
 end
 
--- Base Control
+-- Control
 
 Control = {}
 
@@ -42,183 +43,119 @@ function Control:setPos(x, y)
 	self.y = y
 end
 
-function Control:drawImage(src, x, y, w, h, ox, oy)
-	self.buff:draw(src, x, y, w, h, ox, oy)
+function Control:getX()
+	return self.x
 end
 
-function Control:write(txt, x, y)
-	x = x or self.cursorX
-	y = y or self.cursorY
-	self.cursorX = x + self.buff:write(x, y, txt)
+function Control:setX(x)
+	self.x = x
 end
 
-function Control:read(len, x, y)
-	x = x or self.cursorX
-	y = y or self.cursorY
-	return self.buff:read(x, y, len)
+function Control:getY()
+	return self.y
 end
 
-function Control:clear(c)
-	self.buff:clear(c)
-end
-
-function Control:clearLine(y)
-	self.buff:clearLine(y or self.cursorY)
-end
-
-function Control:getCursorPos()
-	return self.cursorX, self.cursorY
-end
-
-function Control:setCursorPos(x, y)
-	self.cursorX = x
-	self.cursorY = y
-end
-
-function Control:setCursorBlink(b)
-	self.cursorBlink = b
+function Control:setY(y)
+	self.y = y
 end
 
 function Control:getSize()
-	return self.buff:getSize()
+	return self.width, self.height
 end
 
 function Control:getWidth()
-	return self.buff:getWidth()
+	return self.width
 end
 
 function Control:getHeight()
-	return self.buff:getHeight()
+	return self.height
 end
 
-function Control:scroll(n)
-	self.buff:scroll(n)
+function Control:resize(w, h)
+	self.width = w
+	self.height = h
 end
 
-function Control:setTextColor(c, x, y)
-	self.buff:setTextColor(c, x, y)
-end
-Control.setTextColour = Control.setTextColor
-
-function Control:getTextColor(x, y)
-	return self.buff:getTextColor(x, y)
-end
-Control.getTextColour = Control.getTextColor
-
-function Control:setBackgroundColor(c, x, y)
-	self.buff:setBackgroundColor(c, x, y)
+function Control:setBackgroundColor(c)
+	self.bgColor = c
 end
 Control.setBackgroundColour = Control.setBackgroundColor
 
-function Control:getBackgroundColor(x, y)
-	return self.buff:getBackgroundColor(x, y)
+function Control:getBackgroundColor()
+	return self.bgColor
 end
 Control.getBackgroundColour = Control.getBackgroundColor
 
-function Control:isColor()
-	return true
+function Control:setTextColor(c)
+	self.txtColor = c
 end
-Control.isColour = Control.isColor
+Control.setTextColour = Control.setTextColor
 
-function Control:setChar(c, x, y)
-	x = x or self.cursorX
-	y = y or self.cursorY
-	self.buff:setChar(x, y, c)
+function Control:getTextColor()
+	return self.txtColor
 end
+Control.getTextColour = Control.getTextColor
 
-function Control:getChar(x, y)
-	x = x or self.cursorX
-	y = y or self.cursorY
-	return self.buff:getChar(x, y)
+function Control:write(target, txt)
+	-- TODO --
 end
 
-function Control:drawChar(c, x, y)
-	x = x or self.cursorX
-	y = y or self.cursorY
-	self.buff:drawChar(x, y, c)
+function Control:print(target, ...)
+	-- TODO --
 end
 
-function Control:print(sText, x, y)
-	sText = tostring(sText)
-	local nLines = 0
-	local w, h = self:getSize()
-	if w < 1 or h < 1 then
-		return 0
+function Control:clear(target)
+	local line = string.rep(" ", self.width)
+	for y = 0, self.height - 1 do
+		target.write(line, self.x, self.y + y)
 	end
-	x = x or self.cursorX
-	y = y or self.cursorY
-	self:setCursorPos(x, y)
-	local function newline()
-		if y + 1 <= h then
-			self:setCursorPos(1, y + 1)
-		else
-			self:scroll(1)
-			self:setCursorPos(1, h)
-		end
-		x, y = self:getCursorPos()
-		nLines = nLines + 1
-	end
-	while #sText > 0 do
-		local space = string.match(sText, "^([ \t]+)")
-		if space then
-			self:write(space)
-			x, y = self:getCursorPos()
-			sText = string.sub(sText, #space + 1)
-		end
-		while string.at(sText, 1) == "\n" do
-			newline()
-			sText = string.sub(sText, 2)
-		end
-		if #sText > 0 then
-			local txt = string.match(sText, "^[^ \t\n]+")
-			if txt then
-				sText = string.sub(sText, #txt + 1)
-				if #txt > w then
-					while #txt > 0 do
-						if x > w then
-							newline()
-						end
-						self:write(txt)
-						txt = string.sub(txt, (w - x) + 2)
-						x, y = self:getCursorPos()
-					end
-				else
-					if #txt > w - x then
-						newline()
-					end
-					self:write(txt)
-					x, y = self:getCursorPos()
-				end
-			end
-		end
-	end
-	return nLines
 end
 
-function Control:render()
-	display.drawImage(self.buff, self.x, self.y)
+function Control:clearLine(target, y)
+	target.write(string.rep(" ", self.width), self.x, self.y + y - 1)
+end
+
+function Control:drawLine(target, x1, y1, x2, y2)
+	-- TODO --
+end
+
+function Control:drawRect(target, x, y, w, h)
+	local line = string.rep(" ", w)
+	for i = 0, h - 1 do
+		target.write(line, x, y + i)
+	end
+end
+
+function Control:draw(target)
+	target.setBackgroundColor(self.bgColor)
+	target.setTextColor(self.txtColor)
+	self:clear(target)
 end
 
 function control(x, y, w, h)
 	local ctrl = {}
 	ctrl.x = x
 	ctrl.y = y
-	ctrl.cursorX = 1
-	ctrl.cursorY = 1
-	ctrl.buff = image.new(w, h)
+	ctrl.width = w
+	ctrl.height = h
+	ctrl.bgColor = colors.black
+	ctrl.txtColor = colors.white
 	return newObj(ctrl, Control)
 end
 
--- View
+-- Container
 
-View = newClass(Control)
+Container = newClass(Control)
 
-function View:addChild(child)
+function Container:addChild(child)
+	if child.parent then
+		child.parent:removeChild(child)
+	end
 	child.parent = self
-	self.childs[#self.childs + 1] = child
+	table.insert(self.childs, 1, child)
 end
 
-function View:removeChild(child)
+function Container:removeChild(child)
 	for i = 1, #self.childs do
 		if self.childs[i] == child then
 			table.remove(self.childs, i)
@@ -228,8 +165,8 @@ function View:removeChild(child)
 	end
 end
 
-function View:setFocus(child)
-	for i = 2, #self.childs do
+function Container:setFocus(child)
+	for i = 1, #self.childs do
 		if self.childs[i] == child then
 			table.move(self.childs, i, 1)
 			break
@@ -237,7 +174,7 @@ function View:setFocus(child)
 	end
 end
 
-function View:handleEvent(evt, ...)
+function Container:handleEvent(evt, ...)
 	if evt == "mouse_click" then
 		return self:onMouseClick(...)
 	elseif evt == "mouse_drag" then
@@ -259,7 +196,7 @@ function View:handleEvent(evt, ...)
 	return false
 end
 
-function View:onMouseClick(btn, x, y)
+function Container:onMouseClick(btn, x, y)
 	for i = 1, #self.childs do
 		local child = self.childs[i]
 		if checkControlBounds(child, x, y) then
@@ -273,7 +210,7 @@ function View:onMouseClick(btn, x, y)
 	return false
 end
 
-function View:onMouseDrag(btn, x, y)
+function Container:onMouseDrag(btn, x, y)
 	for i = 1, #self.childs do
 		local child = self.childs[i]
 		if checkControlBounds(child, x, y) then
@@ -287,7 +224,7 @@ function View:onMouseDrag(btn, x, y)
 	return false
 end
 
-function View:onMouseScroll(dir, x, y)
+function Container:onMouseScroll(dir, x, y)
 	for i = 1, #self.childs do
 		local child = self.childs[i]
 		if checkControlBounds(child, x, y) then
@@ -300,7 +237,7 @@ function View:onMouseScroll(dir, x, y)
 	return false
 end
 
-function View:onKeyDown(key)
+function Container:onKeyDown(key)
 	local child = self.childs[1]
 	if child and child.onKeyDown then
 		child:onKeyDown(key)
@@ -309,7 +246,7 @@ function View:onKeyDown(key)
 	return false
 end
 
-function View:onChar(char)
+function Container:onChar(char)
 	local child = self.childs[1]
 	if child and child.onChar then
 		child:onChar(char)
@@ -318,31 +255,91 @@ function View:onChar(char)
 	return false
 end
 
-function View:draw()
-	self:clear()
-	for i = 1, #self.childs do
-		local child = self.childs[i]
-		child:draw()
-		local x, y = child:getPos()
-		local w, h = child:getSize()
-		self:drawImage(child.buff, x, y, w, h)
+function Container:resize(w, h)
+	Control.resize(self, w, h)
+	self.buffer:resize(w, h)
+end
+
+function Container:draw(target)
+	self.buffer:setBackgroundColor(self.bgColor)
+	self.buffer:clear()
+	for i = #self.childs, 1, -1 do
+		self.childs[i]:draw(self.drawTarget)
+	end
+	self.buffer:render(target)
+end
+
+function container(x, y, w, h)
+	local c = control(x, y, w, h)
+	c.childs = {}
+	local buff = screenbuffer.new(w, h)
+	c.buffer = buff
+	c.drawTarget = {
+		drawBuffer = function(buff, x, y, w, h) buff:drawBuffer(buff, x, y, w, h) end,
+		drawImage = function(img, x, y, w, h, ox, oy) buff:drawImage(img, x, y, w, h, ox, oy) end,
+		write = function(txt, x, y) buff:write(txt, x, y) end,
+		read = function(len, x, y) return buff:read(len, x, y) end,
+		clear = function(c) buff:clear(c) end,
+		clearLine = function(y) buff:clearLine(y) end,
+		getSize = function() return buff:getSize() end,
+		getWidth = function() return buff:getWidth() end,
+		getHeight = function() return buff:getHeight() end,
+		getCursorPos = function() return buff:getCursorPos() end,
+		setCursorPos = function(x, y) buff:setCursorPos(x, y) end,
+		setCursorBlink = function(b) buff:setCursorBlink(b) end,
+		getCursorBlink = function() return buff:getCursorBlink() end,
+		scroll = function(n) buff:scroll(n) end,
+		setTextColor = function(c, x, y) buff:setTextColor(c, x, y) end,
+		setTextColour = function(c, x, y) buff:setTextColor(c, x, y) end,
+		getTextColor = function(x, y) return buff:getTextColor(x, y) end,
+		getTextColour = function(x, y) return buff:getTextColor(x, y) end,
+		setBackgroundColor = function(c, x, y) buff:setBackgroundColor(c, x, y) end,
+		setBackgroundColour = function(c, x, y) buff:setBackgroundColor(c, x, y) end,
+		getBackgroundColor = function(x, y) return buff:getBackgroundColor(x, y) end,
+		getBackgroundColour = function(x, y) return buff:getBackgroundColor(x, y) end,
+		setChar = function(c, x, y) buff:setChar(c, x, y) end,
+		getChar = function(x, y) return buff:getChar(x, y) end,
+		drawChar = function(c, x, y) buff:drawChar(c, x, y) end,
+		snapshot = function() return buff:snapshot() end
+	}
+	return newObj(c, Container)
+end
+
+-- Frame
+
+Frame = newClass(Container)
+
+function Frame:run(defaultHandler, renderTarget)
+	renderTarget = renderTarget or display
+	while not self.bExit do
+		self:draw(renderTarget)
+		local tEvt = { os.pullEvent() }
+		if not self:handleEvent(unpack(tEvt)) and defaultHandler then
+			defaultHandler(unpack(tEvt))
+		end
 	end
 end
 
-function view(x, y, w, h)
-	local v = control(x, y, w, h)
-	v.childs = {}
-	return newObj(v, View)
+function Frame:close()
+	self.bExit = true
+end
+Frame.exit = Frame.close
+
+function frame(x, y, w, h)
+	local f = container(x, y, w, h)
+	f.bExit = false
+	return newObj(f, Frame)
 end
 
 -- Label
 
 Label = newClass(Control)
 
-function Label:draw()
-	self:clear()
-	self:setCursorPos(1, 1)
-	self:print(self.text)
+function Label:draw(target)
+	Control.draw(self, target)
+	--target.setCursorPos(self.x, self.y)
+	--self:write(target, self.text)
+	target.write(self.text, self.x, self.y)
 end
 
 function Label:setText(txt)
@@ -359,15 +356,21 @@ end
 
 Button = newClass(Control)
 
-function Button:draw()
-	self:clear()
-	local x = math.ceil((self:getWidth() / 2) - (#self.text / 2)) + 1
-	local y = math.ceil(self:getHeight() / 2)
-	self:write(self.text, x, y)
+function Button:draw(target)
+	Control.draw(self, target)
+	local len = math.min(#self.text, self.width)
+	local txt = string.sub(self.text, 1, len)
+	local x = math.ceil((self.width - len) / 2)
+	local y = math.ceil(self.height / 2) - 1
+	target.write(txt, self.x + x, self.y + y)
 end
 
 function Button:setText(txt)
 	self.text = txt
+end
+
+function Button:getText()
+	return self.text
 end
 
 function Button:onMouseClick(btn, x, y)
@@ -387,11 +390,11 @@ end
 
 ImageButton = newClass(Control)
 
-function ImageButton:draw()
+function ImageButton:draw(target)
 	if self.image then
-		local w = math.min(self.image:getWidth(), self:getWidth())
-		local h = math.min(self.image:getHeight(), self:getHeight())
-		self:drawImage(self.image, 1, 1, w, h)
+		local w = math.min(self.image:getWidth(), self.width)
+		local h = math.min(self.image:getHeight(), self.height)
+		target.drawImage(self.image, self.x, self.y, w, h)
 	end
 end
 
@@ -408,7 +411,7 @@ end
 function imageButton(x, y, w, h, img, callback)
 	local btn = control(x, y, w, h)
 	if type(img) == "string" then
-		btn.image = image.load(img)
+		btn.image = imageio.load(img)
 	else
 		btn.image = img
 	end
@@ -420,19 +423,17 @@ end
 
 List = newClass(Control)
 
-function List:draw()
-	self:clear()
-	for y = 1, math.min(#self.list, self:getHeight() - 1) do
-		if y + self.scroll == self.selected then
-			local c = self:getBackgroundColor()
-			self:setBackgroundColor(self.selectColor)
-			self:clearLine(y)
-			self:write(tostring(self.list[y + self.scroll]), 1, y)
-			self:setBackgroundColor(c)
+function List:draw(target)
+	for i = 1, math.min(#self.list, self.height) do
+		if i + self.scroll == self.selected then
+			target.setBackgroundColor(self.txtColor)
+			target.setTextColor(self.bgColor)
 		else
-			self:clearLine(y)
-			self:write(tostring(self.list[y + self.scroll]), 1, y)
+			target.setBackgroundColor(self.bgColor)
+			target.setTextColor(self.txtColor)
 		end
+		self:clearLine(target, i)
+		target.write(string.sub(tostring(self.list[i + self.scroll]), 1, self.width), self.x, self.y + i - 1)
 	end
 end
 
@@ -442,14 +443,6 @@ end
 
 function List:setList(l)
 	self.list = l
-end
-
-function List:getSelectionColor()
-	return self.selectColor
-end
-
-function List:setSelectionColor(c)
-	self.selectColor = c
 end
 
 function List:scroll(n)
@@ -526,26 +519,23 @@ function List:onKeyDown(key)
 end
 
 function list(x, y, w, h, l, callback)
-	local list = control(x, y, w, h)
-	list.list = l or {}
-	list.scroll = 0
-	list.selected = 1
-	list.selectColor = colors.blue
-	list.onSelectionChanged = callback
-	return newObj(list, List)
+	local tList = control(x, y, w, h)
+	tList.list = l or {}
+	tList.scroll = 0
+	tList.selected = 1
+	tList.onSelectionChanged = callback
+	return newObj(tList, List)
 end
 
 -- Bar Control
 
 Bar = newClass(Control)
 
-function Bar:draw()
-	self:clear()
-	local c = self:getBackgroundColor()
-	self:setBackgroundColor(self.fillColor)
-	local w = math.floor(self:getWidth() * self.fill)
-	self:write(string.rep(" ", w), 1, 1)
-	self:setBackgroundColor(c)
+function Bar:draw(target)
+	Control.draw(self, target)
+	target.setBackgroundColor(self.fillColor)
+	local w = math.floor(self.width * self.fill)
+	target.write(string.rep(" ", w), self.x, self.y)
 end
 
 function Bar:getFillColor()
@@ -591,7 +581,6 @@ function SliderBar:onMouseClick(btn, x, y)
 		end
 	end
 end
-
 SliderBar.onMouseDrag = SliderBar.onMouseClick
 
 function sliderBar(x, y, w, callback)
@@ -605,11 +594,12 @@ end
 
 MessageBox = newClass(Control)
 
-function MessageBox:draw()
-	self:clear()
-	self:write(self.title, math.floor((self:getWidth() / 2) - (#self.title / 2)), 1)
-	self:print(self.msg, 1, 2)
-	-- TODO: buttons
+function MessageBox:draw(target)
+	-- TODO --
+	Control.draw(self, target)
+	target.write(self.title, self.x + math.floor((self.width - #self.title) / 2), self.y)
+	target.setCursorPos(self.x, self.y + 1)
+	self:print(target, self.msg)
 end
 
 function messageBox(x, y, w, h, title, msg)
@@ -619,29 +609,180 @@ function messageBox(x, y, w, h, title, msg)
 	return newObj(msgbox, MessageBox)
 end
 
-function message(w, h, title, msg, bgColor, txtColor)
-	local sw, sh = term.getSize()
-	local x = math.floor((sw / 2) - (w / 2))
-	local y = math.floor((sh / 2) - (h / 2))
-	local msgbox = messageBox(x, y, 0, w, h, title, msg)
-	if bgColor then
-		msgbox:setBackgroundColor(bgColor)
+-- Canvas
+
+Canvas = newClass(Control)
+
+function Canvas:draw(target)
+	Control.draw(self, target)
+	target.drawImage(self.img, self.x, self.y, self.width, self.height, self.ox, self.oy)
+end
+
+function Canvas:setOffset(ox, oy)
+	self.ox = ox
+	self.oy = oy
+end
+
+function Canvas:getImage()
+	return self.img
+end
+
+function canvas(x, y, w, h, imgW, imgH)
+	local c = control(x, y, w, h)
+	c.img = image.new(imgW, imgH)
+	c.ox = 0
+	c.oy = 0
+	c:setBackgroundColor(colors.lightGray)
+	c.img:setBackgroundColor(colors.white)
+	c.img:clear()
+	return newObj(c, Canvas)
+end
+
+-- MenuItem
+
+MenuItem = {}
+
+function MenuItem:getName()
+	return self.name
+end
+
+function MenuItem:setName(name)
+	self.name = name
+end
+
+function MenuItem:getAction()
+	return self.action
+end
+
+function MenuItem:setAction(action)
+	self.action = action
+end
+
+function menuItem(name, action)
+	local item = {}
+	item.name = name
+	item.action = action
+	return newObj(item, MenuItem)
+end
+
+-- Menu
+
+Menu = {}
+
+function Menu:draw(target, x, y)
+	for i = 1, #self.items do
+		-- TODO: clear line
+		target.write(self.items[i]:getName(), x, y + i - 1)
 	end
-	if txtColor then
-		msgbox:setTextColor(txtColor)
+end
+
+function Menu:getName()
+	return self.name
+end
+
+function Menu:setName(name)
+	self.name = name
+end
+
+function Menu:getItems()
+	return self.items
+end
+
+function Menu:addMenuItem(item)
+	self.items[#self.items + 1] = item
+end
+
+function Menu:removeMenuItem(item)
+	for i = 1, #self.items do
+		if self.items[i] == item then
+			table.remove(self.items, i)
+		end
 	end
-	while true do
-		msgbox:draw()
-		msgbox:render()
-		local evt, arg, mx, my = os.pullEvent("mouse_click", "key")
-		if evt == "mouse_click" then
-			if arg == 1 and checkControlBounds(msgbox, mx, my) then
-				break
-			end
-		elseif evt == "key" then
-			if arg == keys.enter then
-				break
+end
+
+function Menu:isOpen()
+	return self.bOpen
+end
+
+function Menu:open()
+	self.bOpen = true
+end
+
+function Menu:close()
+	self.bOpen = false
+end
+
+function menu(name)
+	local m = {}
+	m.name = name
+	m.items = {}
+	m.bOpen = false
+	return newObj(m, Menu)
+end
+
+-- Menu Bar
+
+MenuBar = newClass(Control)
+
+function MenuBar:draw(target)
+	Control.draw(self, target)
+	target.setBackgroundColor(self.menuBgColor)
+	local x = 0
+	for i = 1, #self.menus do
+		local m = self.menus[i]
+		local name = m:getName()
+		target.write(m:getName(), self.x + x, self.y)
+		if m:isOpen() then
+			m:draw(target, self.x + x, self.y + 1)
+		end
+		x = x + #name
+	end
+end
+
+function MenuBar:addMenu(m)
+	self.menus[#self.menus + 1] = m
+end
+
+function MenuBar:removeMenu(m)
+	for i = 1, #self.menus do
+		if self.menus[i] == m then
+			table.remove(self.menus, i)
+			if self.menus[i] == self.curMenu then
+				self.curMenu:close()
+				self.curMenu = nil
 			end
 		end
 	end
+end
+
+function MenuBar:onMouseClick(btn, x, y)
+	if btn == 1 then
+		if y == 1 then
+			local mx = 1
+			for i = 1, #self.menus do
+				local w = #self.menus[i]:getName()
+				if x >= mx and x < mx + w then
+					if self.menus[i] == self.curMenu then
+						self.curMenu:close()
+						self.curMenu = nil
+					else
+						if self.curMenu then
+							self.curMenu:close()
+						end
+						self.menus[i]:open()
+						self.curMenu = self.menus[i]
+					end
+					break
+				end
+				mx = mx + w
+			end
+		end
+	end
+end
+
+function menuBar(x, y, w, bgColor)
+	local bar = control(x, y, w, 1)
+	bar.menus = {}
+	bar.menuBgColor = bgColor or colors.black
+	return newObj(bar, MenuBar)
 end

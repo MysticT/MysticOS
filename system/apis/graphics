@@ -1,7 +1,7 @@
 -- MysticOS Graphics API
 
 function drawImage(img, x, y, w, h, ox, oy)
-	display.draw(img, x, y, w, h, ox, oy)
+	display.drawImage(img, x, y, w, h, ox, oy)
 end
 
 function write(txt, x, y)
@@ -9,7 +9,7 @@ function write(txt, x, y)
 end
 
 function read(len, x, y)
-	display.read(len, x, y)
+	return display.read(len, x, y)
 end
 
 function clear(c)
@@ -18,22 +18,6 @@ end
 
 function clearLine(y)
 	display.clearLine(y)
-end
-
-function getCursorPos()
-	return display.getCursorPos()
-end
-
-function setCursorPos(x, y)
-	display.setCursorPos(x, y)
-end
-
-function setCursorBlink(b)
-	display.setCursorPos(b)
-end
-
-function getCursorBlink()
-	return display.getCursorBlink()
 end
 
 function getSize()
@@ -46,6 +30,22 @@ end
 
 function getHeight()
 	return display.getHeight()
+end
+
+function getCursorPos()
+	return display.getCursorPos()
+end
+
+function setCursorPos(x, y)
+	display.setCursorPos(x, y)
+end
+
+function setCursorBlink(b)
+	display.setCursorBlink(b)
+end
+
+function getCursorBlink()
+	return display.getCursorBlink()
 end
 
 function scroll(n)
@@ -72,11 +72,6 @@ function getBackgroundColor(x, y)
 end
 getBackgroundColour = getBackgroundColor
 
-function isColor()
-	return display.isColor()
-end
-isColour = isColor
-
 function setChar(c, x, y)
 	display.setChar(c, x, y)
 end
@@ -92,3 +87,8 @@ end
 function snapshot()
 	return display.snapshot()
 end
+
+function isColor()
+	return display.isColor()
+end
+isColour = isColor

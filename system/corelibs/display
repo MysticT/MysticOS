@@ -32,39 +32,6 @@ end
 
 -- Draw methods
 
-local function renderLine(disp, y)
-	screen.setCursorPos(1, y)
-	local i = 1
-	local txt = disp.text[y]
-	local sBgColor = disp.bgColor[y]
-	local sTxtColor = disp.txtColor[y]
-	while i <= disp.width do
-		local bgColor = colors.fromString(sBgColor, i)
-		local txtColor = colors.fromString(sTxtColor, i)
-		j = i
-		i = i + 1
-		while i <= disp.width and bgColor == colors.fromString(sBgColor, i) and
-				txtColor == colors.fromString(sTxtColor, i) do
-			i = i + 1
-		end
-		screen.setBackgroundColor(bgColor)
-		screen.setTextColor(txtColor)
-		screen.write(string.sub(txt, j, i - 1))
-	end
-end
-
-local function renderDisplay(disp)
-	for y = 1, disp.height do
-		if disp.redrawAll or disp.needsRedraw[y] then
-			renderLine(disp, y)
-			disp.needsRedraw[y] = false
-		end
-	end
-	screen.setCursorPos(disp.cursorX, disp.cursorY)
-	screen.setCursorBlink(disp.cursorBlink)
-	disp.redrawAll = false
-end
-
 local function centerWrite(txt)
 	local x, y = screen.getCursorPos()
 	local w, h = screen.getSize()
@@ -102,7 +69,7 @@ end
 local function drawDisplay()
 	local disp = getFrontDisplay()
 	if disp then
-		renderDisplay(disp)
+		disp:render(screen)
 	else
 		drawBackground()
 	end
@@ -117,7 +84,7 @@ local function drawScreen()
 end
 
 local function redrawDisplay()
-	if curDisplay == frontDisplay then
+	if curDisplay == frontDisplay and tDisplays[curDisplay]:needsRedraw() then
 		redraw()
 	end
 end
@@ -125,73 +92,9 @@ end
 local function redrawAll()
 	local disp = getFrontDisplay()
 	if disp then
-		disp.redrawAll = true
+		disp:redraw()
 	end
 	redraw()
-end
-
-local function resize(disp, width, height)
-	if disp.width ~= width or disp.height ~= height then
-		local h = math.min(disp.height, height)
-		if width > disp.width then
-			local diff = width - disp.width
-			local sBlank = string.rep(" ", diff)
-			local sTxtColor = string.rep(colors.toString(disp.curTxtColor), diff)
-			local sBackColor = string.rep(colors.toString(disp.curBgColor), diff)
-			for y = 1, h do
-				disp.text[y] = disp.text[y]..sBlank
-				disp.txtColor[y] = disp.txtColor[y]..sTxtColor
-				disp.bgColor[y] = disp.bgColor[y]..sBackColor
-			end
-		else
-			for y = 1, h do
-				disp.text[y] = string.sub(disp.text[y], 1, width)
-				disp.txtColor[y] = string.sub(disp.txtColor[y], 1, width)
-				disp.bgColor[y] = string.sub(disp.bgColor[y], 1, width)
-			end
-		end
-		if height > disp.height then
-			local w = math.max(disp.width, width)
-			local sBlank = string.rep(" ", w)
-			local sTxtColor = string.rep(colors.toString(disp.curTxtColor), w)
-			local sBackColor = string.rep(colors.toString(disp.curBgColor), w)
-			for y = disp.height + 1, height do
-				disp.text[y] = sBlank
-				disp.bgColor[y] = sTxtColor
-				disp.txtColor[y] = sBackColor
-			end
-		else
-			for y = height + 1, disp.height do
-				disp.text[y] = nil
-				disp.bgColor[y] = nil
-				disp.txtColor[y] = nil
-			end
-		end
-		disp.width = width
-		disp.height = height
-		disp.redrawAll = true
-		redrawDisplay()
-	end
-end
-
-local function setLine(disp, y, txt, bgColor, txtColor)
-	local needsRedraw = false
-	if txt and (disp.text[y] ~= txt) then
-		disp.text[y] = txt
-		needsRedraw = true
-	end
-	if bgColor and (disp.bgColor[y] ~= bgColor) then
-		disp.bgColor[y] = bgColor
-		needsRedraw = true
-	end
-	if txtColor and (disp.txtColor[y] ~= txtColor) then
-		disp.txtColor[y] = txtColor
-		needsRedraw = true
-	end
-	if needsRedraw then
-		disp.needsRedraw[y] = true
-		redrawDisplay()
-	end
 end
 
 -- Display API
@@ -203,137 +106,73 @@ function redraw()
 	end
 end
 
-function drawImage(img, x, y, w, h, ox, oy)
+function drawBuffer(buff, x, y, w, h)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	w = w or img.width
-	h = h or img.height
-	ox = ox or 0
-	oy = oy or 0
-	if x <= disp.width and y <= disp.height then
-		local sx, sy = 1, 1
-		if x < 1 then
-			w = w + x - 1
-			sx = -x + 1
-			x = 1
-		end
-		if x + w - 1 > disp.width then
-			w = disp.width - x + 1
-		end
-		if y < 1 then
-			h = h + y - 1
-			sy = -y + 1
-			y = 1
-		end
-		if y + h - 1 > disp.height then
-			h = disp.height - y + 1
-		end
-		for i = 0, h - 1 do
-			local txt = string.replace(disp.text[y+i], x, x + w - 1, string.sub(img.text[oy+sy+i], ox + sx, ox + sx + w))
-			local bgColor = string.replace(disp.bgColor[y+i], x, x + w - 1, string.sub(img.bgColor[oy+sy+i], ox + sx, ox + sx + w))
-			local txtColor = string.replace(disp.txtColor[y+i], x, x + w - 1, string.sub(img.txtColor[oy+sy+i], ox + sx, ox + sx + w))
-			setLine(disp, y + i, txt, bgColor, txtColor)
-		end
+	if disp then
+		disp:drawBuffer(buff, x, y, w, h)
+		redrawDisplay()
 	end
 end
 
-function write(sTxt, x, y)
+function drawImage(img, x, y, w, h, ox, oy)
 	local disp = getDisplay()
-	if not disp then
-		return
+	if disp then
+		disp:drawImage(img, x, y, w, h, ox, oy)
+		redrawDisplay()
 	end
-	checkType(sTxt, "string")
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	if x <= disp.width and y > 0 and y <= disp.height then
-		if x < 1 then
-			sTxt = string.sub(sTxt, -x + 1)
-			x = 1
-		end
-		if x + #sTxt - 1 > disp.width then
-			sTxt = string.sub(sTxt, 1, (disp.width - x) + 1)
-		end
-		local txt = string.replace(disp.text[y], x, x + #sTxt - 1, sTxt)
-		local bgColor = string.replace(disp.bgColor[y], x, x + #sTxt - 1, string.rep(colors.toString(disp.curBgColor), #sTxt))
-		local txtColor = string.replace(disp.txtColor[y], x, x + #sTxt - 1, string.rep(colors.toString(disp.curTxtColor), #sTxt))
-		setLine(disp, y, txt, bgColor, txtColor)
-		disp.cursorX = x + #sTxt
+end
+
+function write(txt, x, y)
+	local disp = getDisplay()
+	if disp then
+		disp:write(txt, x, y)
+		redrawDisplay()
 	end
 end
 
 function read(len, x, y)
 	local disp = getDisplay()
-	if not disp then
-		return nil
-	end
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	if x <= disp.width and y > 0 and y <= disp.height then
-		if x < 1 then
-			len = len + x - 1
-			x = 1
-		end
-		return string.sub(disp.text[y], x, x + len)
-	end
+	return disp and disp:read(len, x, y)
 end
 
 function clear(c)
 	local disp = getDisplay()
-	if not disp then
-		return
+	if disp then
+		disp:clear(c)
+		redrawDisplay()
 	end
-	local sBlank = string.rep(" ", disp.width)
-	local sBgColor = string.rep(colors.toString(c or disp.curBgColor), disp.width)
-	local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
-	for y = 1, disp.height do
-		disp.text[y] = sBlank
-		disp.bgColor[y] = sBgColor
-		disp.txtColor[y] = sTxtColor
-	end
-	disp.redrawAll = true
-	redrawDisplay()
 end
 
 function clearLine(y)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	y = y or disp.cursorY
-	if y > 0 and y <= disp.height then
-		local txt = string.rep(" ", disp.width)
-		local bgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
-		local txtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
-		setLine(disp, y, txt, bgColor, txtColor)
+	if disp then
+		disp:clearLine(y)
+		redrawDisplay()
 	end
 end
 
 function getSize()
 	local disp = getDisplay()
 	if disp then
-		return disp.width, disp.height
+		return disp:getSize()
 	end
 	return 0, 0
 end
 
 function getWidth()
 	local disp = getDisplay()
-	return disp and disp.width or 0
+	return disp and disp:getWidth() or 0
 end
 
 function getHeight()
 	local disp = getDisplay()
-	return disp and disp.height or 0
+	return disp and disp:getHeight() or 0
 end
 
 function getCursorPos()
 	local disp = getDisplay()
 	if disp then
-		return disp.cursorX, disp.cursorY
+		return disp:getCursorPos()
 	end
 	return 0, 0
 end
@@ -341,185 +180,86 @@ end
 function setCursorPos(x, y)
 	local disp = getDisplay()
 	if disp then
-		disp.cursorX = x or disp.cursorX
-		disp.cursorY = y or disp.cursorY
-		if disp.cursorBlink then
-			redrawDisplay()
-		end
+		disp:setCursorPos(x, y)
+		redrawDisplay()
 	end
 end
 
 function setCursorBlink(b)
 	local disp = getDisplay()
 	if disp then
-		if b ~= disp.cursorBlink then
-			disp.cursorBlink = b
-			redrawDisplay()
-		end
+		disp:setCursorBlink(b)
+		redrawDisplay()
 	end
 end
 
 function getCursorBlink()
 	local disp = getDisplay()
-	return disp and disp.cursorBlink
+	return disp and disp:getCursorBlink()
 end
 
 function scroll(n)
 	local disp = getDisplay()
-	if not disp then
-		return
+	if disp then
+		disp:scroll(n)
+		redrawDisplay()
 	end
-	n = n or 1
-	if n >= disp.height or n <= -disp.height then
-		clear()
-		return
-	elseif n > 0 then
-		for y = 1, disp.height - n do
-			disp.text[y] = disp.text[y + n]
-			disp.bgColor[y] = disp.bgColor[y + n]
-			disp.txtColor[y] = disp.txtColor[y + n]
-		end
-		local sBlank = string.rep(" ", disp.width)
-		local sBgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
-		local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
-		for y = (disp.height - n) + 1, disp.height do
-			disp.text[y] = sBlank
-			disp.bgColor[y] = sBgColor
-			disp.txtColor[y] = sTxtColor
-		end
-	elseif n < 0 then
-		n = -n
-		for y = disp.height, 1 + n, -1 do
-			disp.text[y] = disp.text[y - n]
-			disp.bgColor[y] = disp.bgColor[y - n]
-			disp.txtColor[y] = disp.txtColor[y - n]
-		end
-		local sBlank = string.rep(" ", disp.width)
-		local sBgColor = string.rep(colors.toString(disp.curBgColor), disp.width)
-		local sTxtColor = string.rep(colors.toString(disp.curTxtColor), disp.width)
-		for y = 1, n do
-			disp.text[y] = sBlank
-			disp.bgColor[y] = sBgColor
-			disp.txtColor[y] = sTxtColor
-		end
-	end
-	disp.redrawAll = true
-	redrawDisplay()
 end
 
 function setTextColor(c, x, y)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	if x and y then
-		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			setLine(disp, y, nil, nil, string.set(disp.txtColor[y], x, colors.toString(c)))
-		end
-	else
-		disp.curTxtColor = c
+	if disp then
+		disp:setTextColor(c, x, y)
+		redrawDisplay()
 	end
 end
 setTextColour = setTextColor
 
 function getTextColor(x, y)
 	local disp = getDisplay()
-	if not disp then
-		return 0
-	end
-	if x and y then
-		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			return colors.fromString(string.at(disp.txtColor[y], x))
-		end
-	else
-		return disp.curTxtColor
-	end
+	return disp and disp:getTextColor(x, y) or 0
 end
 getTextColour = getTextColor
 
 function setBackgroundColor(c, x, y)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	if x and y then
-		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			setLine(disp, y, nil, string.set(disp.bgColor[y], x, colors.toString(c)))
-		end
-	else
-		disp.curBgColor = c
+	if disp then
+		disp:setBackgroundColor(c, x, y)
+		redrawDisplay()
 	end
 end
 setBackgroundColour = setBackgroundColor
 
 function getBackgroundColor(x, y)
 	local disp = getDisplay()
-	if not disp then
-		return 0
-	end
-	if x and y then
-		if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-			return colors.fromString(string.at(disp.bgColor[y], x))
-		end
-	else
-		return disp.curBgColor
-	end
+	return disp and disp:getBackgroundColor(x, y) or 0
 end
 getBackgroundColour = getBackgroundColor
 
 function setChar(c, x, y)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-		setLine(disp, y, string.set(disp.text[y], x, string.at(tostring(c), 1)))
+	if disp then
+		disp:setChar(c, x, y)
+		redrawDisplay()
 	end
 end
 
 function getChar(x, y)
 	local disp = getDisplay()
-	if not disp then
-		return nil
-	end
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-		return string.at(disp.text[y], x)
-	end
+	return disp and disp:getChar(x, y)
 end
 
 function drawChar(c, x, y)
 	local disp = getDisplay()
-	if not disp then
-		return
-	end
-	x = x or disp.cursorX
-	y = y or disp.cursorY
-	if x > 0 and x <= disp.width and y > 0 and y <= disp.height then
-		local text = string.set(disp.text[y], x, string.at(tostring(c), 1))
-		local bgColor = string.set(disp.bgColor[y], x, colors.toString(disp.curBgColor))
-		local txtColor = string.set(disp.txtColor[y], x, colors.toString(disp.curTxtColor))
-		setLine(disp, y, txt, bgColor, txtColor)
+	if disp then
+		disp:drawChar(c, x, y)
+		redrawDisplay()
 	end
 end
 
 function snapshot()
 	local disp = getDisplay()
-	if not disp then
-		return nil
-	end
-	local tImg = image.new(disp.width, disp.height)
-	tImg.curBgColor = disp.curBgColor
-	tImg.curTxtColor = disp.curTxtColor
-	for y = 1, disp.height do
-		tImg.text[y] = disp.text[y]
-		tImg.bgColor[y] = disp.bgColor[y]
-		tImg.txtColor[y] = disp.txtColor[y]
-	end
-	return tImg
+	return disp and disp:snapshot()
 end
 
 function isColor()
@@ -528,29 +268,7 @@ end
 isColour = isColor
 
 function new()
-	local disp = {}
-	local w, h = screen.getSize()
-	disp.width = w
-	disp.height = h
-	disp.text = {}
-	disp.bgColor = {}
-	disp.txtColor = {}
-	disp.curBgColor = colors.black
-	disp.curTxtColor = colors.white
-	disp.cursorX = 1
-	disp.cursorY = 1
-	disp.cursorBlink = false
-	disp.needsRedraw = {}
-	disp.redrawAll = true
-	local sBlank = string.rep(" ", w)
-	local sColor = string.rep(colors.toString(colors.black), w)
-	for y = 1, h do
-		disp.text[y] = sBlank
-		disp.bgColor[y] = sColor
-		disp.txtColor[y] = sColor
-		disp.needsRedraw[y] = false
-	end
-	return addDisplay(disp)
+	return addDisplay(screenbuffer.new(screenW, screenH))
 end
 
 function remove(id)
@@ -594,18 +312,6 @@ end
 
 function getFront()
 	return frontDisplay
-end
-
-function update()
-	local w, h = screen.getSize()
-	if w ~= screenW or h ~= screenH then
-		os.queueEvent("display_resize", w, h)
-		screenW = w
-		screenH = h
-		for _,disp in pairs(tDisplays) do
-			resize(disp, w, h)
-		end
-	end
 end
 
 -- Event Handlers

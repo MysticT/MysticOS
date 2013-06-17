@@ -1,12 +1,6 @@
 -- MysticOS Screen Library
 
-local nativeTerm = term
-
-local targets = {}
-
-local function getCurrentTarget()
-	return #targets > 0 and targets[#targets] or nativeTerm
-end
+local native = term
 
 local tColorLookup = {
 	[colors.white] = colors.white,
@@ -27,115 +21,43 @@ local tColorLookup = {
 	[colors.black] = colors.black
 }
 
-local function getColor(target, c)
-	if target.isColor and target.isColor() then
+local function getColor(c)
+	if native.isColor and native.isColor() then
 		return c
 	end
 	return tColorLookup[c] or 0
 end
 
--- Screen API
+-- API
 
-function write(txt)
-	local target = getCurrentTarget()
-	if target and target.write then
-		target.write(txt)
+local screen = {}
+
+for k, v in pairs(native) do
+	if type(k) == "string" and type(v) == "function" then
+		screen[k] = function(...)
+			return native[k](...)
+		end
 	end
 end
 
-function clear()
-	local target = getCurrentTarget()
-	if target and target.clear then
-		target.clear()
-	end
+function screen.setTextColor(c)
+	native.setTextColor(getColor(c))
 end
+screen.setTextColour = screen.setTextColor
 
-function clearLine()
-	local target = getCurrentTarget()
-	if target and target.clearLine then
-		target.clearLine()
-	end
+function screen.setBackgroundColor(c)
+	native.setBackgroundColor(getColor(c))
 end
+screen.setBackgroundColour = screen.setBackgroundColor
 
-function getCursorPos()
-	local target = getCurrentTarget()
-	if target and target.getCursorPos then
-		return target.getCursorPos()
-	end
-	return 0, 0
-end
-
-function setCursorPos(x, y)
-	local target = getCurrentTarget()
-	if target and target.setCursorPos then
-		target.setCursorPos(x, y)
-	end
-end
-
-function setCursorBlink(b)
-	local target = getCurrentTarget()
-	if target and target.setCursorBlink then
-		target.setCursorBlink(b)
-	end
-end
-
-function isColor()
-	local target = getCurrentTarget()
-	if target and target.isColor then
-		return target.isColor()
-	end
-	return false
-end
-isColour = isColor
-
-function getSize()
-	local target = getCurrentTarget()
-	if target and target.getSize then
-		return target.getSize()
-	end
-	return 0, 0
-end
-
-function getWidth()
-	local w, h = getSize()
+function screen.getWidth()
+	local w, h = native.getSize()
 	return w
 end
 
-function getHeight()
-	local w, h = getSize()
+function screen.getHeight()
+	local w, h = native.getSize()
 	return h
 end
 
-function scroll(n)
-	local target = getCurrentTarget()
-	if target and target.scroll then
-		target.scroll(n)
-	end
-end
-
-function setTextColor(c)
-	local target = getCurrentTarget()
-	if target and target.setTextColor then
-		c = getColor(target, c)
-		target.setTextColor(c)
-	end
-end
-setTextColour = setTextColor
-
-function setBackgroundColor(c)
-	local target = getCurrentTarget()
-	if target and target.setBackgroundColor then
-		c = getColor(target, c)
-		target.setBackgroundColor(c)
-	end
-end
-setBackgroundColour = setBackgroundColor
-
-function redirect(target)
-	checkType(target, "table")
-	targets[#targets + 1] = target
-end
-
-function restore()
-	targets[#targets] = nil
-end
+return screen

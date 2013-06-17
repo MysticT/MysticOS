@@ -34,7 +34,7 @@ end
 
 local tColorLookup = {}
 for i = 1, 16 do
-	tColorLookup[string.byte("0123456789abcdef", i, i)] = 2 ^ (i - 1)
+	tColorLookup[string.byte("0123456789abcdef", i)] = 2 ^ (i - 1)
 end
 
 function toString(c)
@@ -47,4 +47,27 @@ end
 
 function fromString(s, i)
 	return tColorLookup[string.byte(s, i or 1)] or 0
+end
+
+local tInvertLookup = {
+	[white] = black,
+	[orange] = purple,
+	[magenta] = lime,
+	[lightBlue] = brown,
+	[yellow] = blue,
+	[lime] = magenta,
+	[pink] = green,
+	[gray] = lightGray,
+	[lightGray] = gray,
+	[cyan] = red,
+	[purple] = orange,
+	[blue] = yellow,
+	[brown] = lightBlue,
+	[green] = pink,
+	[red] = cyan,
+	[black] = white
+}
+
+function invert(c)
+	return tInvertLookup[c]
 end

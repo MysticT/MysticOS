@@ -1,0 +1,275 @@
+-- MysticOS Image IO Library
+
+local tFormats = {}
+
+-- Yield function
+
+local lastYield = os.clock()
+local function yield()
+	if os.clock() - yieldTime > 1 then
+		os.queueEvent("imageio_yield")
+		os.pullEvent("imageio_yield")
+		yieldTime = os.clock()
+	end
+end
+
+-- Image Formats
+
+-- MIF - MysticOS Image
+
+local function MIF_getBgColor(c)
+	return 2 ^ bit.band(bit.brshift(c, 4), 0x0F)
+end
+
+local function MIF_getTxtColor(c)
+	return 2 ^ bit.band(c, 0x0F)
+end
+
+local function MIF_getColorByte(bgColor, txtColor)
+	bgColor = math.floor(math.logN(bgColor, 2))
+	txtColor = math.floor(math.logN(txtColor, 2))
+	return bit.bor(bit.blshift(bgColor, 4), txtColor)
+end
+
+local function MIF_writeHeader(file, img)
+	file.writeBytes("MIF")
+	file.writeUShort(img.width)
+	file.writeUShort(img.height)
+	file.writeUByte(MIF_getColorByte(img.curBgColor, img.curTxtColor))
+end
+
+local function MIF_readHeader(file, img)
+	if file.readString(3) ~= "MIF" then
+		return false
+	end
+	img.width = file.readUShort()
+	img.height = file.readUShort()
+	local curColors = file.readUByte()
+	img.curBgColor = MIF_getBgColor(curColors)
+	img.curTxtColor = MIF_getTxtColor(curColors)
+	return true
+end
+
+local function MIF_writeData(file, img)
+	for y = 1, img.height do
+		for x = 1, img.width do
+			local bgColor = colors.fromString(img.bgColor[y], x)
+			local txtColor = colors.fromString(img.txtColor[y], x)
+			file.writeUByte(MIF_getColorByte(bgColor, txtColor))
+			file.writeChar(string.at(img.text[y], x))
+		end
+		yield()
+	end
+end
+
+local function MIF_readData(file, img)
+	for y = 1, img.height do
+		local txt = ""
+		local bgColor = ""
+		local txtColor = ""
+		for x = 1, img.width do
+			local c = file.readUByte()
+			bgColor = bgColor..colors.toString(MIF_getBgColor(c))
+			txtColor = txtColor..colors.toString(MIF_getTxtColor(c))
+			txt = txt..file.readChar()
+		end
+		img.text[y] = txt
+		img.bgColor[y] = bgColor
+		img.txtColor[y] = txtColor
+	end
+end
+
+local function MIF_save(img, path)
+	local file = fs.open(path, "wb")
+	if file then
+		MIF_writeHeader(file, img)
+		MIF_writeData(file, img)
+		file.close()
+		return true
+	end
+	return false
+end
+
+local function MIF_load(path)
+	local file = fs.open(path, "rb")
+	if file then
+		local img = image.new(0, 0)
+		if MIF_readHeader(file, img) then
+			MIF_readData(file, img)
+			file.close()
+			return img
+		end
+		file.close()
+	end
+	return nil
+end
+
+-- NFP - NPaintPro Image
+
+local function NFP_readLines(file)
+	local tLines = {}
+	local w = 0
+	local sLine = file.readLine()
+	while sLine do
+		w = math.max(w, #sLine)
+		tLines[#tLines + 1] = string.gsub(sLine, " ", "0")
+		sLine = file.readLine()
+	end
+	return tLines, w
+end
+
+local function NFP_save(img, path)
+	local file = fs.open(path, "w")
+	if file then
+		for y = 1, img.height do
+			file.writeLine(img.bgColor[y])
+		end
+		file.close()
+		return true
+	end
+	return false
+end
+
+local function NFP_load(path)
+	local file = fs.open(path, "r")
+	if file then
+		local tLines, w = NFP_readLines(file)
+		file.close()
+		local img = image.new(w, #tLines)
+		local sBlack = colors.toString(colors.black)
+		for y = 1, #tLines do
+			img.bgColor[y] = tLines[y]..string.rep(sBlack, w - #tLines[y])
+		end
+		return img
+	end
+	return nil
+end
+
+-- NFT - NPaintPro Text-Image
+
+local function NFT_getColor(c)
+	return colors.fromString(c) == 0 and "0" or c
+end
+
+local function NFT_readImage(file)
+	local tText = {}
+	local tBgColor = {}
+	local tTxtColor = {}
+	local w = 0
+	local n = 1
+	local sLine = file.readLine()
+	while sLine do
+		local txt = ""
+		local bgColor = ""
+		local txtColor = ""
+		local bgNext, txtNext = false, false
+		local curBgColor, curTxtColor = colors.black, colors.white
+		for i = 1, #sLine do
+			local c = string.at(sLine, i)
+			if c:byte() == 30 then
+				bgNext = true
+			elseif c:byte() == 31 then
+				txtNext = true
+			elseif bgNext then
+				curBgColor = NFT_getColor(c)
+				bgNext = false
+			elseif txtNext then
+				curTxtColor = NFT_getColor(c)
+				txtNext = false
+			else
+				txt = txt..c
+				bgColor = bgColor..curBgColor
+				txtColor = txtColor..curTxtColor
+			end
+		end
+		tText[n] = txt
+		tBgColor[n] = bgColor
+		tTxtColor[n] = txtColor
+		w = math.max(w, #txt)
+		n = n + 1
+		sLine = file.readLine()
+	end
+	return tText, tBgColor, tTxtColor, w
+end
+
+local function NFT_save(img, path)
+	local file = fs.open(path, "w")
+	if file then
+		for y = 1, img.height do
+			local line = ""
+			local curBgColor, curTxtColor = colors.black, colors.white
+			for x = 1, #img.text[y] do
+				local bgColor = string.at(img.bgColor[y], x)
+				if bgColor ~= curBgColor then
+					line = line..string.char(30)..colors.toString(bgColor)
+					curBgColor = bgColor
+				end
+				local txtColor = string.at(img.txtColor[y], x)
+				if txtColor ~= curTxtColor then
+					line = line..string.char(31)..colors.toString(txtColor)
+					curTxtColor = txtColor
+				end
+				line = line..string.at(img.text[y], x)
+			end
+			file.writeLine(line)
+		end
+		file.close()
+		return true
+	end
+	return false
+end
+
+local function NFT_load(path)
+	local file = fs.open(path, "r")
+	if file then
+		local txt, bgColor, txtColor, w = NFT_readImage(file)
+		file.close()
+		local img = image.new(w, #txt)
+		local sBlack = colors.toString(colors.black)
+		for y = 1, #txt do
+			local n = w - #txt[y]
+			img.text[y] = txt[y]..string.rep(" ", n)
+			img.bgColor[y] = bgColor[y]..string.rep(sBlack, n)
+			img.txtColor[y] = txtColor[y]..string.rep(sBlack, n)
+		end
+		return img
+	end
+	return nil
+end
+
+-- API
+
+function save(img, path, format)
+	if not tFormats[format] then
+		return false, "Unknown format "..format
+	end
+	return tFormats[format].save(img, path)
+end
+
+function load(path, format)
+	if format and tFormats[format] then
+		return tFormats[format].load(path)
+	else
+		-- TODO --
+	end
+end
+
+function registerFormat(formatName, name, fSave, fLoad)
+	if tFormats[name] then
+		return false
+	end
+	checkType(fSave, "function")
+	checkType(fLoad, "function")
+	tFormats[formatName] = {
+		name = name,
+		save = fSave,
+		load = fLoad
+	}
+	return true
+end
+
+-- Register Formats
+
+registerFormat("MIF", "MysticOS Image", MIF_save, MIF_load)
+registerFormat("NFP", "NPaintPro Image", NFP_save, NFP_load)
+registerFormat("NFT", "NPaintPro Text-Image", NFT_save, NFT_load)

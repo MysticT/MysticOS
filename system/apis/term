@@ -28,14 +28,4 @@ function term.restore()
 	targets[#targets] = nil
 end
 
-function term.redirectScreen(target)
-	screen.redirect(target)
-	display.update()
-end
-
-function term.restoreScreen()
-	screen.restore()
-	display.update()
-end
-
 return term

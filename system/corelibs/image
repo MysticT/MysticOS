@@ -1,28 +1,10 @@
 -- MysticOS Image Library
 
--- TODO: load paint/npaintpro images
-
--- Colors
-
-local function getBgColor(c)
-	return 2 ^ bit.band(bit.brshift(c, 4), 0x0F)
-end
-
-local function getTxtColor(c)
-	return 2 ^ bit.band(c, 0x0F)
-end
-
-local function getColorByte(bgColor, txtColor)
-	bgColor = math.floor(math.logN(bgColor, 2))
-	txtColor = math.floor(math.logN(txtColor, 2))
-	return bit.bor(bit.blshift(bgColor, 4), txtColor)
-end
-
 -- Image Class
 
-local img = {}
+local Image = {}
 
-function img:render(target, ox, oy)
+function Image:render(target, ox, oy)
 	target = target or screen
 	ox = ox or 1
 	oy = oy or 1
@@ -48,13 +30,13 @@ function img:render(target, ox, oy)
 	end
 end
 
-function img:draw(src, x, y, w, h, ox, oy)
+function Image:draw(src, x, y, w, h, ox, oy)
 	x = x or 1
 	y = y or 1
-	w = w or src.width
-	h = h or src.height
 	ox = ox or 0
 	oy = oy or 0
+	w = w and math.min(w, src.width - ox) or src.width - ox
+	h = h and math.min(h, src.height - oy) or src.height - oy
 	if x <= self.width and y <= self.height then
 		local sx, sy = 1, 1
 		if x < 1 then
@@ -81,7 +63,7 @@ function img:draw(src, x, y, w, h, ox, oy)
 	end
 end
 
-function img:write(x, y, txt)
+function Image:write(x, y, txt)
 	if x <= self.width and y > 0 and y <= self.height then
 		if x < 1 then
 			txt = string.sub(txt, -x + 1)
@@ -98,7 +80,7 @@ function img:write(x, y, txt)
 	return 0
 end
 
-function img:read(x, y, len)
+function Image:read(x, y, len)
 	if x <= self.width and y > 0 and y <= self.height then
 		if x < 1 then
 			len = len + x - 1
@@ -108,7 +90,7 @@ function img:read(x, y, len)
 	end
 end
 
-function img:clear(c)
+function Image:clear(c)
 	local sBlank = string.rep(" ", self.width)
 	local sBgColor = string.rep(colors.toString(c or self.curBgColor), self.width)
 	local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
@@ -119,7 +101,7 @@ function img:clear(c)
 	end
 end
 
-function img:clearLine(y)
+function Image:clearLine(y)
 	if y > 0 and y <= self.height then
 		self.text[y] = string.rep(" ", self.width)
 		self.bgColor[y] = string.rep(colors.toString(self.curBgColor), self.width)
@@ -127,19 +109,19 @@ function img:clearLine(y)
 	end
 end
 
-function img:getSize()
+function Image:getSize()
 	return self.width, self.height
 end
 
-function img:getWidth()
+function Image:getWidth()
 	return self.width
 end
 
-function img:getHeight()
+function Image:getHeight()
 	return self.height
 end
 
-function img:scroll(n)
+function Image:scroll(n)
 	n = n or 1
 	if n >= self.height or n <= -self.height then
 		self:clear()
@@ -175,7 +157,7 @@ function img:scroll(n)
 	end
 end
 
-function img:setTextColor(c, x, y)
+function Image:setTextColor(c, x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
 			self.txtColor[y] = string.set(self.txtColor[y], x, colors.toString(c))
@@ -184,9 +166,9 @@ function img:setTextColor(c, x, y)
 		self.curTxtColor = c
 	end
 end
-img.setTextColour = img.setTextColor
+Image.setTextColour = Image.setTextColor
 
-function img:getTextColor(x, y)
+function Image:getTextColor(x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
 			return colors.fromString(string.at(self.txtColor[y], x))
@@ -195,9 +177,9 @@ function img:getTextColor(x, y)
 		return self.curTxtColor
 	end
 end
-img.getTextColour = img.getTextColor
+Image.getTextColour = Image.getTextColor
 
-function img:setBackgroundColor(c, x, y)
+function Image:setBackgroundColor(c, x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
 			self.bgColor[y] = string.set(self.bgColor[y], x, colors.toString(c))
@@ -206,9 +188,9 @@ function img:setBackgroundColor(c, x, y)
 		self.curBgColor = c
 	end
 end
-img.setBackgroundColour = img.setBackgroundColor
+Image.setBackgroundColour = Image.setBackgroundColor
 
-function img:getBackgroundColor(x, y)
+function Image:getBackgroundColor(x, y)
 	if x and y then
 		if x > 0 and x <= self.width and y > 0 and y <= self.height then
 			return colors.fromString(string.at(self.bgColor[y], x))
@@ -217,21 +199,21 @@ function img:getBackgroundColor(x, y)
 		return self.curBgColor
 	end
 end
-img.getBackgroundColour = img.getBackgroundColor
+Image.getBackgroundColour = Image.getBackgroundColor
 
-function img:setChar(x, y, c)
+function Image:setChar(x, y, c)
 	if x > 0 and x <= self.width and y > 0 and y <= self.height then
 		self.text[y] = string.set(self.text[y], x, string.at(tostring(c), 1))
 	end
 end
 
-function img:getChar(x, y)
+function Image:getChar(x, y)
 	if x > 0 and x <= self.width and y > 0 and y <= self.height then
 		return string.at(self.text[y], x)
 	end
 end
 
-function img:drawChar(x, y, c)
+function Image:drawChar(x, y, c)
 	if x > 0 and x <= self.width and y > 0 and y <= self.height then
 		self.bgColor[y] = string.set(self.bgColor[y], x, colors.toString(self.curBgColor))
 		self.txtColor[y] = string.set(self.txtColor[y], x, colors.toString(self.curTxtColor))
@@ -239,24 +221,24 @@ function img:drawChar(x, y, c)
 	end
 end
 
-function img:copy()
-	local tImg = {}
-	tImg.width = self.width
-	tImg.height = self.height
-	tImg.text = {}
-	tImg.bgColor = {}
-	tImg.txtColor = {}
-	tImg.curBgColor = self.curBgColor
-	tImg.curTxtColor = self.curTxtColor
+function Image:copy()
+	local img = {}
+	img.width = self.width
+	img.height = self.height
+	img.text = {}
+	img.bgColor = {}
+	img.txtColor = {}
+	img.curBgColor = self.curBgColor
+	img.curTxtColor = self.curTxtColor
 	for y = 1, self.height do
-		tImg.text[y] = self.text[y]
-		tImg.bgColor[y] = self.bgColor[y]
-		tImg.txtColor[y] = self.txtColor[y]
+		img.text[y] = self.text[y]
+		img.bgColor[y] = self.bgColor[y]
+		img.txtColor[y] = self.txtColor[y]
 	end
-	return setmetatable(tImg, { __index = img, __metatable = "Image" })
+	return setmetatable(img, { __index = Image, __metatable = "Image" })
 end
 
-function img:resize(width, height)
+function Image:resize(width, height)
 	if self.width ~= width or self.height ~= height then
 		local h = math.min(self.height, height)
 		if width > self.width then
@@ -298,117 +280,27 @@ function img:resize(width, height)
 	end
 end
 
+function Image:save(path, format)
+	return imageio.save(self, path, format or "MIF")
+end
+
 -- API
 
 function new(w, h)
-	local tImg = {}
-	tImg.width = w
-	tImg.height = h
-	tImg.text = {}
-	tImg.bgColor = {}
-	tImg.txtColor = {}
-	tImg.curBgColor = colors.black
-	tImg.curTxtColor = colors.white
+	local img = {}
+	img.width = w
+	img.height = h
+	img.text = {}
+	img.bgColor = {}
+	img.txtColor = {}
+	img.curBgColor = colors.black
+	img.curTxtColor = colors.white
 	local sBlank = string.rep(" ", w)
 	local sColor = string.rep(colors.toString(colors.black), w)
 	for y = 1, h do
-		tImg.text[y] = sBlank
-		tImg.bgColor[y] = sColor
-		tImg.txtColor[y] = sColor
+		img.text[y] = sBlank
+		img.bgColor[y] = sColor
+		img.txtColor[y] = sColor
 	end
-	return setmetatable(tImg, { __index = img, __metatable = "Image" })
-end
-
--- Yield function
-local yieldTime
-local function yield()
-	if yieldTime then
-		if os.clock() - yieldTime > 2 then
-			os.queueEvent("image_yield")
-			os.pullEvent("image_yield")
-			yieldTime = nil
-		end
-	else
-		yieldTime = os.clock()
-	end
-end
-
--- Save/Load functions
-
-local function writeHeader(file, tImg)
-	file.writeBytes("MIF")
-	file.writeUShort(tImg.width)
-	file.writeUShort(tImg.height)
-	file.writeUByte(getColorByte(tImg.curBgColor, tImg.curTxtColor))
-end
-
-local function readHeader(file)
-	if file.readString(3) == "MIF" then
-		local w = file.readUShort()
-		local h = file.readUShort()
-		local curColors = file.readUByte()
-		local tImg = {}
-		tImg.width = w
-		tImg.height = h
-		tImg.text = {}
-		tImg.bgColor = {}
-		tImg.txtColor = {}
-		tImg.curBgColor = getBgColor(curColors)
-		tImg.curTxtColor = getTxtColor(curColors)
-		return tImg
-	end
-end
-
-local function writeImageData(file, tImg)
-	for y = 1, tImg.height do
-		for x = 1, tImg.width do
-			local bgColor = colors.fromString(tImg.bgColor[y], x)
-			local txtColor = colors.fromString(tImg.txtColor[y], x)
-			file.writeUByte(getColorByte(bgColor, txtColor))
-			file.writeChar(string.at(tImg.text[y], x))
-		end
-		yield()
-	end
-end
-
-local function readImageData(file, tImg)
-	for y = 1, tImg.height do
-		local txt = ""
-		local bgColor = ""
-		local txtColor = ""
-		for x = 1, tImg.width do
-			local c = file.readUByte()
-			bgColor = bgColor..colors.toString(getBgColor(c))
-			txtColor = txtColor..colors.toString(getTxtColor(c))
-			txt = txt..file.readChar()
-		end
-		tImg.text[y] = txt
-		tImg.bgColor[y] = bgColor
-		tImg.txtColor[y] = txtColor
-	end
-end
-
-function img:save(path)
-	local file = fs.open(path, "wb")
-	if file then
-		writeHeader(file, self)
-		writeImageData(file, self)
-		file.close()
-		return true
-	end
-	return false
-end
-
-function load(path)
-	local file = fs.open(path, "rb")
-	if file then
-		local tImg = readHeader(file)
-		if tImg then
-			readImageData(file, tImg)
-			file.close()
-			return setmetatable(tImg, { __index = img })
-		end
-		file.close()
-	end
-	return nil
+	return setmetatable(img, { __index = Image, __metatable = "Image" })
 end

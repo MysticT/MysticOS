@@ -1,0 +1,24 @@
+-- MysticOS app file maker
+
+local tArgs = {...}
+if #tArgs < 2 then
+	print("Usage: appmake <name> <path> [args]")
+	return
+end
+
+local name = tArgs[1]
+local path = tArgs[2]
+
+local appPath = fs.combine("/usr/apps", string.lower(name)..".app")
+local file = fs.open(appPath, "w")
+if not file then
+	printError("Error opening file ", appPath)
+	return
+end
+
+file.writeLine("Name = "..name)
+file.writeLine("Path = "..path)
+if #tArgs > 2 then
+	file.writeLine("Args = "..table.concat(tArgs, " ", 3))
+end
+file.close()

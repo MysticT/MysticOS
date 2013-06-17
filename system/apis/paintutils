@@ -4,8 +4,8 @@ local function drawPixelInternal(x, y)
 	graphics.drawChar(" ", x, y)
 end
 
-function loadImage(path)
-	return image.load(path)
+function loadImage(path, format)
+	return imageio.load(path, format)
 end
 
 function drawPixel(x, y, c)

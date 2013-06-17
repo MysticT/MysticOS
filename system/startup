@@ -435,6 +435,7 @@ local function showError(title, msg)
 	write(title)
 	term.setCursorPos(1, 2)
 	print(msg)
+	print("\nPress Enter to Continue...")
 end
 
 -- System Menus

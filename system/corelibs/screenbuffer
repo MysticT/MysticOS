@@ -1,0 +1,432 @@
+-- MysticOS Screen Buffer Library
+
+local function renderLine(target, buff, y)
+	target.setCursorPos(1, y)
+	local i = 1
+	local txt = buff.text[y]
+	local sBgColor = buff.bgColor[y]
+	local sTxtColor = buff.txtColor[y]
+	while i <= buff.width do
+		local bgColor = colors.fromString(sBgColor, i)
+		local txtColor = colors.fromString(sTxtColor, i)
+		j = i
+		i = i + 1
+		while i <= buff.width and bgColor == colors.fromString(sBgColor, i) and
+				txtColor == colors.fromString(sTxtColor, i) do
+			i = i + 1
+		end
+		target.setBackgroundColor(bgColor)
+		target.setTextColor(txtColor)
+		target.write(string.sub(txt, j, i - 1))
+	end
+end
+
+local function setLine(buff, y, txt, bgColor, txtColor)
+	local needsRedraw = false
+	if txt and (buff.text[y] ~= txt) then
+		buff.text[y] = txt
+		needsRedraw = true
+	end
+	if bgColor and (buff.bgColor[y] ~= bgColor) then
+		buff.bgColor[y] = bgColor
+		needsRedraw = true
+	end
+	if txtColor and (buff.txtColor[y] ~= txtColor) then
+		buff.txtColor[y] = txtColor
+		needsRedraw = true
+	end
+	if needsRedraw then
+		buff.changed[y] = true
+		buff.bRedraw = true
+	end
+end
+
+-- Buffer Class
+
+local Buffer = {}
+
+function Buffer:redraw()
+	self.redrawAll = true
+	self.bRedraw = true
+end
+
+function Buffer:render(target)
+	if self.bRedraw then
+		for y = 1, self.height do
+			if self.redrawAll or self.changed[y] then
+				renderLine(target, self, y)
+				self.changed[y] = false
+			end
+		end
+		target.setCursorPos(self.cursorX, self.cursorY)
+		target.setCursorBlink(self.cursorBlink)
+		self.redrawAll = false
+		self.bRedraw = false
+	end
+end
+
+function Buffer:drawBuffer(buff, x, y, w, h)
+	if not buff:needsRedraw() then
+		return
+	end
+	x = x or 1
+	y = y or 1
+	w = w and math.min(w, buff.width) or buff.width
+	h = h and math.min(h, buff.height) or buff.height
+	if x <= self.width and y <= self.height then
+		local sx, sy = 1, 1
+		if x < 1 then
+			w = w + x - 1
+			sx = -x + 1
+			x = 1
+		end
+		if x + w - 1 > self.width then
+			w = self.width - x + 1
+		end
+		if y < 1 then
+			h = h + y - 1
+			sy = -y + 1
+			y = 1
+		end
+		if y + h - 1 > self.height then
+			h = self.height - y + 1
+		end
+		for i = 0, h - 1 do
+			if buff.redrawAll or buff.changed[y+i] then
+				local txt = string.replace(self.text[y+i], x, x + w - 1, string.sub(buff.text[sy+i], sx, sx + w))
+				local bgColor = string.replace(self.bgColor[y+i], x, x + w - 1, string.sub(buff.bgColor[sy+i], sx, sx + w))
+				local txtColor = string.replace(self.txtColor[y+i], x, x + w - 1, string.sub(buff.txtColor[sy+i], sx, sx + w))
+				setLine(self, y + i, txt, bgColor, txtColor)
+				buff.changed[y+i] = false
+			end
+		end
+		buff.redrawAll = false
+		buff.bRedraw = false
+	end
+end
+
+function Buffer:drawImage(img, x, y, w, h, ox, oy)
+	x = x or self.cursorX
+	y = y or self.cursorY
+	ox = ox or 0
+	oy = oy or 0
+	w = w and math.min(w, img.width - ox) or img.width - ox
+	h = h and math.min(h, img.height - oy) or img.height - oy
+	if x <= self.width and y <= self.height then
+		local sx, sy = 1, 1
+		if x < 1 then
+			w = w + x - 1
+			sx = -x + 1
+			x = 1
+		end
+		if x + w - 1 > self.width then
+			w = self.width - x + 1
+		end
+		if y < 1 then
+			h = h + y - 1
+			sy = -y + 1
+			y = 1
+		end
+		if y + h - 1 > self.height then
+			h = self.height - y + 1
+		end
+		for i = 0, h - 1 do
+			local txt = string.replace(self.text[y+i], x, x + w - 1, string.sub(img.text[oy+sy+i], ox + sx, ox + sx + w))
+			local bgColor = string.replace(self.bgColor[y+i], x, x + w - 1, string.sub(img.bgColor[oy+sy+i], ox + sx, ox + sx + w))
+			local txtColor = string.replace(self.txtColor[y+i], x, x + w - 1, string.sub(img.txtColor[oy+sy+i], ox + sx, ox + sx + w))
+			setLine(self, y + i, txt, bgColor, txtColor)
+		end
+	end
+end
+
+function Buffer:write(sTxt, x, y)
+	checkType(sTxt, "string")
+	x = x or self.cursorX
+	y = y or self.cursorY
+	if x <= self.width and y > 0 and y <= self.height then
+		if x < 1 then
+			sTxt = string.sub(sTxt, -x + 1)
+			x = 1
+		end
+		if x + #sTxt - 1 > self.width then
+			sTxt = string.sub(sTxt, 1, (self.width - x) + 1)
+		end
+		local txt = string.replace(self.text[y], x, x + #sTxt - 1, sTxt)
+		local bgColor = string.replace(self.bgColor[y], x, x + #sTxt - 1, string.rep(colors.toString(self.curBgColor), #sTxt))
+		local txtColor = string.replace(self.txtColor[y], x, x + #sTxt - 1, string.rep(colors.toString(self.curTxtColor), #sTxt))
+		setLine(self, y, txt, bgColor, txtColor)
+		local cx = x + #sTxt
+		if self.cursorX ~= cx then
+			self.cursorX = cx
+			self.bRedraw = true
+		end
+	end
+end
+
+function Buffer:read(len, x, y)
+	x = x or self.cursorX
+	y = y or self.cursorY
+	if x <= self.width and y > 0 and y <= self.height then
+		if x < 1 then
+			len = len + x - 1
+			x = 1
+		end
+		return string.sub(self.text[y], x, x + len)
+	end
+end
+
+function Buffer:clear(c)
+	local sBlank = string.rep(" ", self.width)
+	local sBgColor = string.rep(colors.toString(c or self.curBgColor), self.width)
+	local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
+	for y = 1, self.height do
+		self.text[y] = sBlank
+		self.bgColor[y] = sBgColor
+		self.txtColor[y] = sTxtColor
+	end
+	self.redrawAll = true
+	self.bRedraw = true
+end
+
+function Buffer:clearLine(y)
+	y = y or self.cursorY
+	if y > 0 and y <= self.height then
+		local txt = string.rep(" ", self.width)
+		local bgColor = string.rep(colors.toString(self.curBgColor), self.width)
+		local txtColor = string.rep(colors.toString(self.curTxtColor), self.width)
+		setLine(self, y, txt, bgColor, txtColor)
+	end
+end
+
+function Buffer:getSize()
+	return self.width, self.height
+end
+
+function Buffer:getWidth()
+	return self.width
+end
+
+function Buffer:getHeight()
+	return self.height
+end
+
+function Buffer:getCursorPos()
+	return self.cursorX, self.cursorY
+end
+
+function Buffer:setCursorPos(x, y)
+	self.cursorX = x or self.cursorX
+	self.cursorY = y or self.cursorY
+	if self.cursorBlink then
+		self.bRedraw = true
+	end
+end
+
+function Buffer:setCursorBlink(b)
+	if b ~= self.cursorBlink then
+		self.cursorBlink = b
+		self.bRedraw = true
+	end
+end
+
+function Buffer:getCursorBlink()
+	return self.cursorBlink
+end
+
+function Buffer:scroll(n)
+	n = n or 1
+	if n >= self.height or n <= -self.height then
+		clear()
+		return
+	elseif n > 0 then
+		for y = 1, self.height - n do
+			self.text[y] = self.text[y + n]
+			self.bgColor[y] = self.bgColor[y + n]
+			self.txtColor[y] = self.txtColor[y + n]
+		end
+		local sBlank = string.rep(" ", self.width)
+		local sBgColor = string.rep(colors.toString(self.curBgColor), self.width)
+		local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
+		for y = (self.height - n) + 1, self.height do
+			self.text[y] = sBlank
+			self.bgColor[y] = sBgColor
+			self.txtColor[y] = sTxtColor
+		end
+	elseif n < 0 then
+		n = -n
+		for y = self.height, 1 + n, -1 do
+			self.text[y] = self.text[y - n]
+			self.bgColor[y] = self.bgColor[y - n]
+			self.txtColor[y] = self.txtColor[y - n]
+		end
+		local sBlank = string.rep(" ", self.width)
+		local sBgColor = string.rep(colors.toString(self.curBgColor), self.width)
+		local sTxtColor = string.rep(colors.toString(self.curTxtColor), self.width)
+		for y = 1, n do
+			self.text[y] = sBlank
+			self.bgColor[y] = sBgColor
+			self.txtColor[y] = sTxtColor
+		end
+	end
+	self.redrawAll = true
+	self.bRedraw = true
+end
+
+function Buffer:setTextColor(c, x, y)
+	if x and y then
+		if x > 0 and x <= self.width and y > 0 and y <= self.height then
+			setLine(self, y, nil, nil, string.set(self.txtColor[y], x, colors.toString(c)))
+		end
+	else
+		self.curTxtColor = c
+	end
+end
+Buffer.setTextColour = Buffer.setTextColor
+
+function Buffer:getTextColor(x, y)
+	if x and y then
+		if x > 0 and x <= self.width and y > 0 and y <= self.height then
+			return colors.fromString(string.at(self.txtColor[y], x))
+		end
+	else
+		return self.curTxtColor
+	end
+end
+Buffer.getTextColour = Buffer.getTextColor
+
+function Buffer:setBackgroundColor(c, x, y)
+	if x and y then
+		if x > 0 and x <= self.width and y > 0 and y <= self.height then
+			setLine(self, y, nil, string.set(self.bgColor[y], x, colors.toString(c)))
+		end
+	else
+		self.curBgColor = c
+	end
+end
+Buffer.setBackgroundColour = Buffer.setBackgroundColor
+
+function Buffer:getBackgroundColor(x, y)
+	if x and y then
+		if x > 0 and x <= self.width and y > 0 and y <= self.height then
+			return colors.fromString(string.at(self.bgColor[y], x))
+		end
+	else
+		return self.curBgColor
+	end
+end
+Buffer.getBackgroundColour = Buffer.getBackgroundColor
+
+function Buffer:setChar(c, x, y)
+	x = x or self.cursorX
+	y = y or self.cursorY
+	if x > 0 and x <= self.width and y > 0 and y <= self.height then
+		setLine(self, y, string.set(self.text[y], x, string.at(tostring(c), 1)))
+	end
+end
+
+function Buffer:getChar(x, y)
+	x = x or self.cursorX
+	y = y or self.cursorY
+	if x > 0 and x <= self.width and y > 0 and y <= self.height then
+		return string.at(self.text[y], x)
+	end
+end
+
+function Buffer:drawChar(c, x, y)
+	x = x or self.cursorX
+	y = y or self.cursorY
+	if x > 0 and x <= self.width and y > 0 and y <= self.height then
+		local text = string.set(self.text[y], x, string.at(tostring(c), 1))
+		local bgColor = string.set(self.bgColor[y], x, colors.toString(self.curBgColor))
+		local txtColor = string.set(self.txtColor[y], x, colors.toString(self.curTxtColor))
+		setLine(self, y, txt, bgColor, txtColor)
+	end
+end
+
+function Buffer:snapshot()
+	local img = image.new(self.width, self.height)
+	img.curBgColor = self.curBgColor
+	img.curTxtColor = self.curTxtColor
+	for y = 1, self.height do
+		img.text[y] = self.text[y]
+		img.bgColor[y] = self.bgColor[y]
+		img.txtColor[y] = self.txtColor[y]
+	end
+	return img
+end
+
+function Buffer:resize(width, height)
+	if self.width ~= width or self.height ~= height then
+		local h = math.min(self.height, height)
+		if width > self.width then
+			local diff = width - self.width
+			local sBlank = string.rep(" ", diff)
+			local sTxtColor = string.rep(colors.toString(self.curTxtColor), diff)
+			local sBackColor = string.rep(colors.toString(self.curBgColor), diff)
+			for y = 1, h do
+				self.text[y] = self.text[y]..sBlank
+				self.txtColor[y] = self.txtColor[y]..sTxtColor
+				self.bgColor[y] = self.bgColor[y]..sBackColor
+			end
+		else
+			for y = 1, h do
+				self.text[y] = string.sub(self.text[y], 1, width)
+				self.txtColor[y] = string.sub(self.txtColor[y], 1, width)
+				self.bgColor[y] = string.sub(self.bgColor[y], 1, width)
+			end
+		end
+		if height > self.height then
+			local w = math.max(self.width, width)
+			local sBlank = string.rep(" ", w)
+			local sTxtColor = string.rep(colors.toString(self.curTxtColor), w)
+			local sBackColor = string.rep(colors.toString(self.curBgColor), w)
+			for y = self.height + 1, height do
+				self.text[y] = sBlank
+				self.bgColor[y] = sTxtColor
+				self.txtColor[y] = sBackColor
+			end
+		else
+			for y = height + 1, self.height do
+				self.text[y] = nil
+				self.bgColor[y] = nil
+				self.txtColor[y] = nil
+			end
+		end
+		self.width = width
+		self.height = height
+		self.redrawAll = true
+		self.bRedraw = true
+	end
+end
+
+function Buffer:needsRedraw()
+	return self.bRedraw
+end
+
+-- API
+
+function new(w, h)
+	local buff = {}
+	buff.width = w
+	buff.height = h
+	buff.text = {}
+	buff.bgColor = {}
+	buff.txtColor = {}
+	buff.curBgColor = colors.black
+	buff.curTxtColor = colors.white
+	buff.cursorX = 1
+	buff.cursorY = 1
+	buff.cursorBlink = false
+	buff.changed = {}
+	buff.bRedraw = true
+	buff.redrawAll = true
+	local sBlank = string.rep(" ", w)
+	local sColor = string.rep(colors.toString(colors.black), w)
+	for y = 1, h do
+		buff.text[y] = sBlank
+		buff.bgColor[y] = sColor
+		buff.txtColor[y] = sColor
+		buff.changed[y] = false
+	end
+	return setmetatable(buff, { __index = Buffer, __metatable = "Buffer" })
+end

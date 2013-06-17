@@ -1,5 +1,7 @@
 -- MysticOS System Menu
 
+-- TODO: confirmation for shutdown/reboot
+
 local nSelected
 local nScroll
 local screenH

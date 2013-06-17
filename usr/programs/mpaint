@@ -1,0 +1,95 @@
+-- MysticOS Paint
+
+-- WIP --
+
+local screenW, screenH = graphics.getSize()
+
+-- GUI
+
+local frame = gui.frame(1, 1, screenW, screenH)
+frame:setBackgroundColor(colors.white)
+
+local function exit()
+	frame:exit()
+end
+
+-- Menu Bar
+
+local menuBar = gui.menuBar(1, 1, screenW)
+frame:addChild(menuBar)
+
+-- Menus
+
+-- File Menu
+local fileMenu = gui.menu("File")
+fileMenu:addMenuItem(gui.menuItem("Exit", exit))
+menuBar:addMenu(fileMenu)
+
+-- Color Picker
+
+local ColorPicker = setmetatable({}, { __index = gui.Control })
+
+function ColorPicker:draw(target)
+	gui.Control.draw(self, target)
+	for i = 0, 15 do
+		local c = 2 ^ i
+		target.setBackgroundColor(c)
+		target.write("  ", self.x, self.y + i)
+	end
+	target.setBackgroundColor(self.leftColor, self.x, self.y + 16)
+	target.setBackgroundColor(self.rightColor, self.x + 1, self.y + 16)
+end
+
+function ColorPicker:getLeftColor()
+	return self.leftColor
+end
+
+function ColorPicker:getRightColor()
+	return self.rightColor
+end
+
+function ColorPicker:onMouseClick(btn, x, y)
+	if y <= 16 then
+		if btn == 1 then
+			self.leftColor = 2 ^ (y - 1)
+		elseif btn == 2 then
+			self.rightColor = 2 ^ (y - 1)
+		end
+	end
+end
+
+local function newColorPicker(x, y)
+	local cp = gui.control(x, y, 2, 17)
+	cp.leftColor = colors.black
+	cp.rightColor = colors.white
+	cp:setBackgroundColor(colors.white)
+	return setmetatable(cp, { __index = ColorPicker })
+end
+
+local colorPicker = newColorPicker(screenW - 1, 2)
+frame:addChild(colorPicker)
+
+-- Canvas
+
+local PaintCanvas = setmetatable({}, { __index = gui.Canvas })
+
+function PaintCanvas:onMouseClick(btn, x, y)
+	if btn == 1 or btn == 2 and x <= self.img:getWidth() - self.ox and y <= self.img:getHeight() - self.oy then
+		local c = btn == 1 and colorPicker:getLeftColor() or colorPicker:getRightColor()
+		self.img:setBackgroundColor(c, x, y)
+	end
+end
+
+function PaintCanvas:onMouseDrag(btn, x, y)
+	self:onMouseClick(btn, x, y)
+end
+
+local function newCanvas(x, y, w, h)
+	local cp = gui.canvas(x, y, w, h, w, h)
+	return setmetatable(cp, { __index = PaintCanvas })
+end
+
+local canvas = newCanvas(1, 2, screenW - 2, screenH - 1)
+frame:addChild(canvas)
+
+frame:run()

@@ -327,7 +327,7 @@ function resolvePath(path, bFollowLinks)
 end
 
 function list(path, bIncludeHidden)
-	local l = native.list(resolvePath(path, true))
+	local l = native.list(resolve(path, true))
 	if bIncludeHidden then
 		return l
 	end
@@ -341,19 +341,19 @@ function list(path, bIncludeHidden)
 end
 
 function exists(path)
-	return native.exists(resolvePath(path, true))
+	return native.exists(resolve(path, true))
 end
 
 function isDir(path)
-	return native.isDir(resolvePath(path, true))
+	return native.isDir(resolve(path, true))
 end
 
 function isFile(path)
-	return not native.isDir(resolvePath(path, true))
+	return not native.isDir(resolve(path, true))
 end
 
 function isReadOnly(path)
-	return native.isReadOnly(resolvePath(path, true))
+	return native.isReadOnly(resolve(path, true))
 end
 
 function getName(path, bRemoveExtension)
@@ -373,37 +373,51 @@ function getExtension(path)
 end
 
 function getDir(path)
-	path = resolvePath(path, false)
+	path = resolve(path, false)
 	local name = native.getName(path)
 	return string.sub(path, 1, #path - #name)
 end
 
 function getDrive(path)
-	return native.getDrive(resolvePath(path, true))
+	return native.getDrive(resolve(path, true))
 end
 
 function getSize(path)
-	return native.getSize(resolvePath(path, true))
+	return native.getSize(resolve(path, true))
 end
 
 function getFreeSpace(path)
-	return native.getFreeSpace(resolvePath(path, true))
+	return native.getFreeSpace(resolve(path, true))
 end
 
 function makeDir(path)
-	return native.makeDir(resolvePath(path, true))
+	return native.makeDir(resolve(path, true))
+end
+
+function makePath(path)
+	checkType(path, "string")
+	local t = assert(splitPath(sPath), "Invalid Path", 2)
+	local path = ""
+	for i = 1, #t do
+		path = resolveLink(path.."/"..t[i])
+		if not native.exists(path) then
+			native.makeDir(path)
+		elseif not native.isDir(path) then
+			error("Path contains a file", 2)
+		end
+	end
 end
 
 function move(srcPath, dstPath)
-	return native.move(resolvePath(srcPath, true), resolvePath(dstPath, true))
+	return native.move(resolve(srcPath, true), resolve(dstPath, true))
 end
 
 function copy(srcPath, dstPath)
-	return native.copy(resolvePath(srcPath, true), resolvePath(dstPath, true))
+	return native.copy(resolve(srcPath, true), resolve(dstPath, true))
 end
 
 function delete(path)
-	return native.delete(resolvePath(path, true))
+	return native.delete(resolve(path, true))
 end
 
 function combine(basePath, localPath)
@@ -411,12 +425,12 @@ function combine(basePath, localPath)
 end
 
 function isOpen(path)
-	return tOpenFiles[resolvePath(path, true)] ~= nil
+	return tOpenFiles[resolve(path, true)] ~= nil
 end
 
 function makeLink(linkPath, dstPath)
-	linkPath = resolvePath(linkPath, true)
-	dstPath = resolvePath(dstPath, true)
+	linkPath = resolve(linkPath, true)
+	dstPath = resolve(dstPath, true)
 	if native.exists(linkPath) or not native.exists(dstPath) then
 		return false
 	end
@@ -431,7 +445,7 @@ function makeLink(linkPath, dstPath)
 end
 
 function isLink(path)
-	local sDir = getDir(path)
+	local sDir = resolve(getDir(path), true)
 	path = native.combine(sDir, native.getName(path))
 	if native.exists(path) and not native.isDir(path) then
 		local file = native.open(path, "rb")
@@ -445,7 +459,7 @@ function isLink(path)
 end
 
 function open(path, mode)
-	path = resolvePath(path, true)
+	path = resolve(path, true)
 	if isOpen(path) then
 		return nil
 	end

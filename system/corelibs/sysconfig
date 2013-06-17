@@ -1,5 +1,7 @@
 -- MysticOS System Configuration
 
+-- TODO: change default keys
+
 local sPath = "/system/sys.cfg"
 local tConfig
 
