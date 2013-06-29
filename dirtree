@@ -1,0 +1,10 @@
+/boot
+/system
+/system/apis
+/system/corelibs
+/system/menus
+/system/programs
+/usr
+/usr/apps
+/usr/libs
+/usr/programs

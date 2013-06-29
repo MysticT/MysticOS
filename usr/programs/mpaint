@@ -2,35 +2,38 @@
 
 -- WIP --
 
+-- TODO: menu
+
 local screenW, screenH = graphics.getSize()
 
 -- GUI
 
-local frame = gui.frame(1, 1, screenW, screenH)
-frame:setBackgroundColor(colors.white)
+local view = gui.View(1, 1, screenW, screenH)
+view:setBackgroundColor(colors.white)
+
+local frame = gui.Frame(view)
 
 local function exit()
 	frame:exit()
 end
 
--- Menu Bar
-
-local menuBar = gui.menuBar(1, 1, screenW)
-frame:addChild(menuBar)
-
--- Menus
-
--- File Menu
-local fileMenu = gui.menu("File")
-fileMenu:addMenuItem(gui.menuItem("Exit", exit))
-menuBar:addMenu(fileMenu)
-
 -- Color Picker
 
-local ColorPicker = setmetatable({}, { __index = gui.Control })
+local ColorPicker = class.get("mpaint.ColorPicker")
+
+if not ColorPicker then
+
+ColorPicker = class.new("mpaint.ColorPicker", gui.Component)
+
+function ColorPicker:initialize(x, y)
+	gui.Component.initialize(self, x, y, 2, 17)
+	self.leftColor = colors.black
+	self.rightColor = colors.white
+	self:setBackgroundColor(colors.white)
+end
 
 function ColorPicker:draw(target)
-	gui.Control.draw(self, target)
+	gui.Component.draw(self, target)
 	for i = 0, 15 do
 		local c = 2 ^ i
 		target.setBackgroundColor(c)
@@ -58,38 +61,34 @@ function ColorPicker:onMouseClick(btn, x, y)
 	end
 end
 
-local function newColorPicker(x, y)
-	local cp = gui.control(x, y, 2, 17)
-	cp.leftColor = colors.black
-	cp.rightColor = colors.white
-	cp:setBackgroundColor(colors.white)
-	return setmetatable(cp, { __index = ColorPicker })
 end
 
-local colorPicker = newColorPicker(screenW - 1, 2)
-frame:addChild(colorPicker)
+local colorPicker = ColorPicker(screenW - 1, 2)
+view:addChild(colorPicker)
 
 -- Canvas
 
-local PaintCanvas = setmetatable({}, { __index = gui.Canvas })
+local PaintCanvas = class.get("mpaint.PaintCanvas")
+
+if not PaintCanvas then
+
+PaintCanvas = class.new("mpaint.PaintCanvas", gui.Canvas)
+
+function PaintCanvas:initialize(x, y, w, h)
+	gui.Canvas.initialize(self, x, y, w, h, 0, 0)
+end
 
 function PaintCanvas:onMouseClick(btn, x, y)
 	if btn == 1 or btn == 2 and x <= self.img:getWidth() - self.ox and y <= self.img:getHeight() - self.oy then
-		local c = btn == 1 and colorPicker:getLeftColor() or colorPicker:getRightColor()
+		local c = btn == 1 and colorPicker:getLeftColor() or colorPicker:getRightColor() -- TODO
 		self.img:setBackgroundColor(c, x, y)
 	end
 end
+PaintCanvas.onMouseDrag = PaintCanvas.onMouseClick
 
-function PaintCanvas:onMouseDrag(btn, x, y)
-	self:onMouseClick(btn, x, y)
 end
 
-local function newCanvas(x, y, w, h)
-	local cp = gui.canvas(x, y, w, h, w, h)
-	return setmetatable(cp, { __index = PaintCanvas })
-end
+local canvas = PaintCanvas(1, 2, screenW - 2, screenH - 1)
+view:addChild(canvas)
 
-local canvas = newCanvas(1, 2, screenW - 2, screenH - 1)
-frame:addChild(canvas)
-
-frame:run()
+frame:start()

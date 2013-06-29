@@ -2,9 +2,8 @@
 
 -- WIP --
 
-local refreshTimer = os.startTimer(1)
-
 local screenW, screenH = graphics.getSize()
+local refreshTimer = os.startTimer(1)
 
 local function getProcessList()
 	local list = {}
@@ -21,21 +20,36 @@ end
 
 -- GUI
 
-local frame = gui.frame(1, 1, screenW, screenH)
+local container = gui.tabbedContainer(1, 1, screenW, screenH)
+local frame = gui.frame(container)
 
 local function exit()
 	frame:close()
 end
 
+-- Menu Bar
+
+local menuBar = gui.menuBar(1, 1, screenW)
+container:addChild(menuBar)
+
+-- Menus
+
+-- File Menu
+local fileMenu = gui.menu("File")
+fileMenu:addMenuItem(gui.menuItem("Exit", exit))
+menuBar:addMenu(fileMenu)
+
+--[[
 local exitButton = gui.button(screenW, 1, 1, 1, "x", exit)
 exitButton:setBackgroundColor(colors.red)
-frame:addChild(exitButton)
+container:addChild(exitButton)
+--]]
 
 local fsLabel = gui.label(1, screenH, screenW, 1, getFsUsage())
-frame:addChild(fsLabel)
+container:addChild(fsLabel)
 
 local list = gui.list(1, 2, screenW, screenH - 2, getProcessList())
-frame:addChild(list)
+container:addChild(list)
 
 local function handleEvent(evt, ...)
 	local args = {...}

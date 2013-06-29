@@ -3,8 +3,8 @@
 -- Version
 
 local nVersion = 0
-local nVerMin = 2
-local nVerBuild = 3
+local nVerMin = 3
+local nVerBuild = 2
 local sVersion = "MysticOS "..tostring(nVersion).."."..tostring(nVerMin).."."..tostring(nVerBuild)
 
 function version()

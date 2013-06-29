@@ -250,7 +250,7 @@ function print(...)
 	for i = 1, #arg do
 		nLines = nLines + write(tostring(arg[i]))
 	end
-	nLines = nLines + write("\n", true)
+	nLines = nLines + write("\n")
 	return nLines
 end
 
@@ -376,8 +376,8 @@ do
 		"rawget", "rawset", "read", "select", "sleep", "setfenv", "setmetatable",
 		"tonumber", "tostring", "type", "unpack", "write", "xpcall", "__inext", "__VERSION",
 		-- APIs
-		"bit", "bit32", "colors", "coroutine", "crypto", "fs", "image", "keys", "math",
-		"os", "peripheral", "redstone", "rs", "string", "table"
+		"bit", "bit32", "class", "colors", "coroutine", "config", "crypto", "fs", "image",
+		"imageio", "keys", "math", "os", "peripheral", "redstone", "rs", "string", "table"
 	}
 	-- Load APIs
 	local sApisPath = "/system/apis"

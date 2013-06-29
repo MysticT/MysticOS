@@ -43,7 +43,31 @@ end
 
 -- Buffer Class
 
-local Buffer = {}
+local Buffer = class.new("ScreenBuffer")
+
+function Buffer:initialize(w, h)
+	self.width = w
+	self.height = h
+	self.text = {}
+	self.bgColor = {}
+	self.txtColor = {}
+	self.curBgColor = colors.black
+	self.curTxtColor = colors.white
+	self.cursorX = 1
+	self.cursorY = 1
+	self.cursorBlink = false
+	self.changed = {}
+	self.bRedraw = true
+	self.redrawAll = true
+	local sBlank = string.rep(" ", w)
+	local sColor = string.rep(colors.toString(colors.black), w)
+	for y = 1, h do
+		self.text[y] = sBlank
+		self.bgColor[y] = sColor
+		self.txtColor[y] = sColor
+		self.changed[y] = false
+	end
+end
 
 function Buffer:redraw()
 	self.redrawAll = true
@@ -406,27 +430,5 @@ end
 -- API
 
 function new(w, h)
-	local buff = {}
-	buff.width = w
-	buff.height = h
-	buff.text = {}
-	buff.bgColor = {}
-	buff.txtColor = {}
-	buff.curBgColor = colors.black
-	buff.curTxtColor = colors.white
-	buff.cursorX = 1
-	buff.cursorY = 1
-	buff.cursorBlink = false
-	buff.changed = {}
-	buff.bRedraw = true
-	buff.redrawAll = true
-	local sBlank = string.rep(" ", w)
-	local sColor = string.rep(colors.toString(colors.black), w)
-	for y = 1, h do
-		buff.text[y] = sBlank
-		buff.bgColor[y] = sColor
-		buff.txtColor[y] = sColor
-		buff.changed[y] = false
-	end
-	return setmetatable(buff, { __index = Buffer, __metatable = "Buffer" })
+	return Buffer(w, h)
 end

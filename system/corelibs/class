@@ -1,0 +1,83 @@
+-- MysticOS Class Library
+
+local tClasses = {}
+
+function new(sName, tBase)
+	checkType(sName, "string")
+	if tClasses[sName] then
+		error("Class "..sName.." already defined", 2)
+	end
+	if tBase then
+		if type(tBase) ~= "table" or getmetatable(tBase) ~= "class" then
+			tBase = nil
+		end
+	end
+	-- Class static data
+	local tStatic = {}
+	-- Instance metatable
+	local tClass = {
+		__index = function(obj, key)
+			return tStatic[key] or (tBase and tBase[key])
+		end,
+		new = function(...)
+			return tClass(...)
+		end,
+		__tostring = function()
+			return sName
+		end,
+		__metatable = "object"
+	}
+	-- Static methods
+	tStatic.isA = function(klass)
+		return klass == tClass or (tBase and tBase:isA(klass))
+	end
+	tStatic.getClass = function()
+		return tClass
+	end
+	-- Class metatable
+	setmetatable(tClass, {
+		__call = function(klass, ...)
+			local obj = {}
+			setmetatable(obj, klass)
+			if klass.initialize then
+				local ok, err = pcall(klass.initialize, obj, ...)
+				if not ok then
+					error(err, 2)
+				end
+			end
+			return obj
+		end,
+		__index = function(klass, key)
+			return tStatic[key] or (tBase and tBase[key])
+		end,
+		__newindex = function(obj, key, val)
+			tStatic[key] = val
+		end,
+		__tostring = function()
+			return "Class "..sName
+		end,
+		__metatable = "class"
+	})
+	tClasses[sName] = tClass
+	return tClass
+end
+
+function get(name)
+	return tClasses[name]
+end
+
+function isClass(t)
+	return type(t) == "table" and getmetatable(t) == "class"
+end
+
+function isObject(t)
+	return type(t) == "table" and getmetatable(t) == "object"
+end
+
+function isInstanceOf(obj, class)
+	return isClass(class) and isObject(obj) and obj:isA(class)
+end
+
+function checkClass(obj, class)
+	assert(isInstanceOf(obj, class), "expected object of type "..tostring(class), 3)
+end

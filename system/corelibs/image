@@ -2,7 +2,24 @@
 
 -- Image Class
 
-local Image = {}
+local Image = class.new("Image")
+
+function Image:initialize(w, h)
+	self.width = w
+	self.height = h
+	self.text = {}
+	self.bgColor = {}
+	self.txtColor = {}
+	self.curBgColor = colors.black
+	self.curTxtColor = colors.white
+	local sBlank = string.rep(" ", w)
+	local sColor = string.rep(colors.toString(colors.black), w)
+	for y = 1, h do
+		self.text[y] = sBlank
+		self.bgColor[y] = sColor
+		self.txtColor[y] = sColor
+	end
+end
 
 function Image:render(target, ox, oy)
 	target = target or screen
@@ -287,20 +304,5 @@ end
 -- API
 
 function new(w, h)
-	local img = {}
-	img.width = w
-	img.height = h
-	img.text = {}
-	img.bgColor = {}
-	img.txtColor = {}
-	img.curBgColor = colors.black
-	img.curTxtColor = colors.white
-	local sBlank = string.rep(" ", w)
-	local sColor = string.rep(colors.toString(colors.black), w)
-	for y = 1, h do
-		img.text[y] = sBlank
-		img.bgColor[y] = sColor
-		img.txtColor[y] = sColor
-	end
-	return setmetatable(img, { __index = Image, __metatable = "Image" })
+	return Image(w, h)
 end

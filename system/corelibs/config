@@ -2,7 +2,11 @@
 
 -- Config class
 
-local Config = {}
+local Config = class.new("Config")
+
+function Config:initialize()
+	self.values = {}
+end
 
 function Config:get(name)
 	checkType(name, "string")
@@ -37,9 +41,7 @@ end
 -- API
 
 function new()
-	local tConfig = {}
-	tConfig.values = {}
-	return setmetatable(tConfig, { __index = Config, __metatable = "Config" })
+	return Config()
 end
 
 function load(path)

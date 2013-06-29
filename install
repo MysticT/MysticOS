@@ -1,0 +1,83 @@
+-- MysticOS Installer/Updater
+
+local installPath = "/"
+local baseURL = "https://raw.github.com/MysticT/MysticOS/master/"
+
+local tDirTree = {}
+local tFiles = {}
+
+local function get(file)
+	local url = baseURL..file
+	local response = http.get(url)
+	if not response then
+		error("Error connecting to "..url, 0)
+	end
+	return response
+end
+
+local function downloadFile(file)
+	print("Downloading file ", file)
+	local response = get(file)
+	local sContents = response.readAll()
+	response.close()
+	return sContents
+end
+
+local function saveFile(path, sContents)
+	print("Saving file to ", path)
+	local file = fs.open(path, "w")
+	if not file then
+		error("Error creating file "..path, 0)
+	end
+	file.write(sContent)
+	file.close()
+end
+
+local function getDirTree()
+	print("Getting directory tree")
+	local dirtree = get("dirtree")
+	for dir in dirtree.readLine() do
+		tDirTree[#tDirTree + 1] = dir
+	end
+	dirtree.close()
+end
+
+local function getFileList()
+	print("Getting file list")
+	local list = get("files")
+	for path in list.readLine() do
+		tFiles[#tFiles + 1] = path
+	end
+	list.close()
+end
+
+local function makeDirTree()
+	print("Creating directory structure")
+	for i = 1, #tDirTree do
+		local path = fs.combine(installPath, tDirTree[i])
+		print("Creating directory ", path)
+		fs.makeDir(path)
+	end
+end
+
+local function getFile(sPath)
+	saveFile(fs.combine(installPath, sPath), downloadFile(sPath))
+end
+
+local function getFiles()
+	print("Downloading files")
+	for i = 1, #tFiles do
+		getFile(tFiles[i])
+	end
+end
+
+if not http then
+	printError("HTTP not enabled")
+	return
+end
+
+getDirTree()
+getFileList()
+makeDirTree()
+getFiles()
+print("Installation completed successfully")
